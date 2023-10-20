@@ -1,11 +1,12 @@
 use crate::app::AppResult;
 use crossterm::event::{self, Event as CrosstermEvent, KeyEvent, MouseEvent};
+use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
-
+use walkdir::WalkDir;
 /// Terminal events.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub enum Event {
     /// Terminal tick.
     Tick,
@@ -15,6 +16,8 @@ pub enum Event {
     Mouse(MouseEvent),
     /// Terminal resize.
     Resize(u16, u16),
+
+    DirEntry(PathBuf),
 }
 
 /// Terminal event handler.
@@ -38,6 +41,25 @@ impl EventHandler {
             let sender = sender.clone();
             thread::spawn(move || {
                 let mut last_tick = Instant::now();
+
+                {
+                    let path = Path::new("."); // Start from the current directory.
+                    WalkDir::new(path)
+                        .follow_links(true) // Follow symbolic links.
+                        .into_iter()
+                        .filter_map(Result::ok) // Filter out potential errors during iteration.
+                        .filter(|entry| {
+                            entry.file_type().is_dir()
+                                && entry.file_name().to_string_lossy() == "node_modules"
+                        })
+                        .for_each(|entry| {
+                            // Send each valid directory entry through the channel.
+                            sender
+                                .send(Event::DirEntry(entry.path().to_path_buf()))
+                                .expect("Unable to send data through the channel.");
+                        });
+                }
+
                 loop {
                     let timeout = tick_rate
                         .checked_sub(last_tick.elapsed())
