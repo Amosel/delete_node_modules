@@ -1,6 +1,7 @@
 use delete_node_modules::app::{App, AppResult};
 use delete_node_modules::event::{Event, EventHandler};
 use delete_node_modules::handler::handle_key_events;
+use delete_node_modules::item::Item;
 use delete_node_modules::tui::Tui;
 use std::io;
 use tui::backend::CrosstermBackend;
@@ -27,6 +28,7 @@ fn main() -> AppResult<()> {
             Event::Key(key_event) => handle_key_events(key_event, &mut app)?,
             Event::Mouse(_) => {}
             Event::Resize(_, _) => {}
+            Event::DirEntry(p) => app.push(Item::from_path(p).unwrap()),
         }
     }
 
