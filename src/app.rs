@@ -1,7 +1,7 @@
-use std::error;
-
-/// Application result type.
 pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
+use std::error;
+use crate::item::Item;
+use crate::list::StatefulList;
 
 /// Application.
 #[derive(Debug)]
@@ -10,21 +10,21 @@ pub struct App {
     pub running: bool,
     /// counter
     pub counter: u8,
-}
 
-impl Default for App {
-    fn default() -> Self {
-        Self {
-            running: true,
-            counter: 0,
-        }
-    }
+    pub list: StatefulList<Item>,
+    // pub items: Vec<std::path::PathBuf>,
+    pub loading: bool,
 }
 
 impl App {
     /// Constructs a new instance of [`App`].
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            running: true,
+            counter: 0,
+            list: StatefulList::new_empty(),
+            loading: true,
+        }
     }
 
     /// Handles the tick event of the terminal.
@@ -33,6 +33,10 @@ impl App {
     /// Set running to false to quit the application.
     pub fn quit(&mut self) {
         self.running = false;
+    }
+
+    pub fn push(&mut self, item: Item) {
+        self.list.push(item);
     }
 
     pub fn increment_counter(&mut self) {
