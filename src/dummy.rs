@@ -1,5 +1,6 @@
 use crate::app::App;
 use crate::item::Item;
+use crate::list::StatefulList;
 
 pub fn dummy_app() -> App {
     App {
