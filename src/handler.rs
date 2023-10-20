@@ -21,6 +21,9 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         KeyCode::Left => {
             app.decrement_counter();
         }
+        KeyCode::Down => app.list.next(),
+        KeyCode::Up => app.list.previous(),
+        KeyCode::Backspace => app.list.toggle(),
         // Other handlers you could add here.
         _ => {}
     }
