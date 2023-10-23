@@ -5,7 +5,6 @@ use crate::list::StatefulList;
 pub fn dummy_app() -> App {
     App {
         running: true,
-        counter: 0,
         list: StatefulList::with_items(vec![
             Item {
                 path: std::path::PathBuf::from(

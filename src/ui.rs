@@ -1,12 +1,12 @@
+use crate::app::App;
 use tui::{
     backend::Backend,
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
-    text::Line,
+    text::{Line, Span},
     widgets::*,
     Frame,
 };
-use crate::app::App;
 
 /// Renders the user interface widgets.
 pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
@@ -24,8 +24,7 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
             "\
                 Press `Esc`, `Ctrl-C` or `q` to stop running.\n\
                 Press up and down to navigate and space bad to toggle selection\n\
-                Counter: {}",
-            app.counter
+                ",
         ))
         .block(
             Block::default()
@@ -44,21 +43,31 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
         .items
         .iter()
         .map(|i| {
-            let lines = vec![Line::from(i.title().clone())];
-            ListItem::new(lines).style(Style::default().fg(Color::Black).bg(Color::White))
+            let select_char: &str = if i.is_on { "[•] " } else { "[ ] " };
+            ListItem::new(Line::from(vec![
+                Span::raw(select_char),
+                Span::raw(i.title().clone()),
+            ]))
+            .style(Style::default().fg(Color::Black).bg(Color::White))
         })
         .collect();
 
     // Create a List from all list items and highlight the currently selected one
-    let items = List::new(items)
-        .block(Block::default().borders(Borders::ALL).title("Directories"))
+    let list = List::new(items)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .title("Directories"),
+        )
         .highlight_style(
             Style::default()
                 .bg(Color::Black)
+                .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
         )
         .highlight_symbol(">> ");
 
     // We can now render the item list
-    frame.render_stateful_widget(items, layout[1], &mut app.list.state);
+    frame.render_stateful_widget(list, layout[1], &mut app.list.state);
 }
