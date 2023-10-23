@@ -5,6 +5,14 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
 use walkdir::WalkDir;
+
+#[derive(Clone, Debug)]
+pub enum DirEvent {
+    Started,
+    Finished,
+    DirEntry(PathBuf),
+}
+
 /// Terminal events.
 #[derive(Clone, Debug)]
 pub enum Event {
@@ -17,7 +25,7 @@ pub enum Event {
     /// Terminal resize.
     Resize(u16, u16),
 
-    DirEntry(PathBuf),
+    Dir(DirEvent),
 }
 
 /// Terminal event handler.
@@ -41,23 +49,44 @@ impl EventHandler {
             let sender = sender.clone();
             thread::spawn(move || {
                 let mut last_tick = Instant::now();
-
                 {
+                    sender
+                        .send(Event::Dir(DirEvent::Started))
+                        .expect("Unable to send data through the channel.");
                     let path = Path::new("."); // Start from the current directory.
-                    WalkDir::new(path)
+                    let mut current: Option<PathBuf> = None;
+                    for entry in WalkDir::new(path)
                         .follow_links(true) // Follow symbolic links.
                         .into_iter()
-                        .filter_map(Result::ok) // Filter out potential errors during iteration.
-                        .filter(|entry| {
-                            entry.file_type().is_dir()
-                                && entry.file_name().to_string_lossy() == "node_modules"
-                        })
-                        .for_each(|entry| {
-                            // Send each valid directory entry through the channel.
-                            sender
-                                .send(Event::DirEntry(entry.path().to_path_buf()))
-                                .expect("Unable to send data through the channel.");
-                        });
+                        .filter_map(Result::ok)
+                    // Filter out potential errors during iteration.
+                    {
+                        if entry.file_type().is_dir()
+                            && entry.file_name().to_string_lossy() == "node_modules"
+                        {
+                            if let Some(ref previous) = current {
+                                if !entry.path().starts_with(previous) {
+                                    current = Some(entry.path().into());
+                                    sender
+                                        .send(Event::Dir(DirEvent::DirEntry(
+                                            entry.path().to_path_buf(),
+                                        )))
+                                        .expect("Unable to send data through the channel.");
+                                }
+                            } else {
+                                current = Some(entry.path().into());
+                                sender
+                                    .send(Event::Dir(DirEvent::DirEntry(
+                                        entry.path().to_path_buf(),
+                                    )))
+                                    .expect("Unable to send data through the channel.");
+                            }
+                        }
+                        // Send each valid directory entry through the channel.
+                    }
+                    sender
+                        .send(Event::Dir(DirEvent::Finished))
+                        .expect("Unable to send finish event.");
                 }
 
                 loop {

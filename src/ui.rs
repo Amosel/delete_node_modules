@@ -38,36 +38,63 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
         layout[0],
     );
 
-    let items: Vec<ListItem> = app
-        .list
-        .items
-        .iter()
-        .map(|i| {
-            let select_char: &str = if i.is_on { "[•] " } else { "[ ] " };
-            ListItem::new(Line::from(vec![
-                Span::raw(select_char),
-                Span::raw(i.title().clone()),
-            ]))
-            .style(Style::default().fg(Color::Black).bg(Color::White))
-        })
-        .collect();
+    if !app.list.items.is_empty() {
+        let items: Vec<ListItem> = app
+            .list
+            .items
+            .iter()
+            .map(|i| {
+                let select_char: &str = if i.is_on { "[•] " } else { "[ ] " };
+                ListItem::new(Line::from(vec![
+                    Span::raw(select_char),
+                    Span::raw(i.title().clone()),
+                ]))
+                .style(Style::default().fg(Color::Black).bg(Color::White))
+            })
+            .collect();
 
-    // Create a List from all list items and highlight the currently selected one
-    let list = List::new(items)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_type(BorderType::Rounded)
-                .title("Directories"),
-        )
-        .highlight_style(
-            Style::default()
-                .bg(Color::Black)
-                .fg(Color::Cyan)
-                .add_modifier(Modifier::BOLD),
-        )
-        .highlight_symbol(">> ");
+        // Create a List from all list items and highlight the currently selected one
+        let is_loading_text = if app.loading { ", Loading..." } else { "" };
+        let list = List::new(items)
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded)
+                    .title(format!(
+                        "Directories {}{}",
+                        app.list.items.len(),
+                        is_loading_text
+                    )),
+            )
+            .highlight_style(
+                Style::default()
+                    .bg(Color::Black)
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )
+            .highlight_symbol(">> ");
 
-    // We can now render the item list
-    frame.render_stateful_widget(list, layout[1], &mut app.list.state);
+        // We can now render the item list
+        frame.render_stateful_widget(list, layout[1], &mut app.list.state);
+    } else if !app.loading {
+        frame.render_widget(
+            Paragraph::new(
+                "\
+                \n\
+                \n\
+                No Items\n\
+                ",
+            )
+            .block(
+                Block::default()
+                    .title("Empty")
+                    .title_alignment(Alignment::Center)
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded),
+            )
+            .style(Style::default().fg(Color::Cyan).bg(Color::Black))
+            .alignment(Alignment::Center),
+            layout[1],
+        );
+    }
 }

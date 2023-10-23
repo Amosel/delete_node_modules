@@ -1,6 +1,5 @@
-use delete_node_modules::app::AppResult;
-use delete_node_modules::dummy::dummy_app;
-use delete_node_modules::event::{Event, EventHandler};
+use delete_node_modules::app::{App, AppResult};
+use delete_node_modules::event::{DirEvent, Event, EventHandler};
 use delete_node_modules::handler::handle_key_events;
 use delete_node_modules::item::Item;
 use delete_node_modules::tui::Tui;
@@ -10,7 +9,7 @@ use tui::Terminal;
 
 fn main() -> AppResult<()> {
     // Create an application.
-    let mut app = dummy_app();
+    let mut app = App::new();
 
     // Initialize the terminal user interface.
     let backend = CrosstermBackend::new(io::stderr());
@@ -29,7 +28,17 @@ fn main() -> AppResult<()> {
             Event::Key(key_event) => handle_key_events(key_event, &mut app)?,
             Event::Mouse(_) => {}
             Event::Resize(_, _) => {}
-            Event::DirEntry(p) => app.push(Item::from_path(p).unwrap()),
+            Event::Dir(d) => match d {
+                DirEvent::Started => {
+                    app.loading = true;
+                }
+                DirEvent::Finished => {
+                    app.loading = false;
+                }
+                DirEvent::DirEntry(p) => {
+                    app.push(Item::from_path(p).unwrap());
+                }
+            },
         }
     }
 
