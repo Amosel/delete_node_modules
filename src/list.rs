@@ -1,4 +1,4 @@
-use crate::item::Toggle;
+use crate::dir_entry_item::Toggle;
 use tui::widgets::*;
 
 pub trait SingleSelection {

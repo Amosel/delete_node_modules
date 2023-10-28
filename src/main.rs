@@ -1,7 +1,7 @@
 use delete_node_modules::app::{App, AppResult};
+use delete_node_modules::dir_entry_item::DirEntryItem;
 use delete_node_modules::event::{DirEvent, Event, EventHandler};
 use delete_node_modules::handler::handle_key_events;
-use delete_node_modules::item::Item;
 use delete_node_modules::tui::Tui;
 use std::io;
 use tui::backend::CrosstermBackend;
@@ -35,8 +35,8 @@ fn main() -> AppResult<()> {
                 DirEvent::Finished => {
                     app.loading = false;
                 }
-                DirEvent::DirEntry(p) => {
-                    app.push(Item::from_path(p).unwrap());
+                DirEvent::DirEntry(e) => {
+                    app.push(DirEntryItem::from_entry(e)?);
                 }
             },
         }

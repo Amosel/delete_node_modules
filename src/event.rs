@@ -4,13 +4,13 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
-use walkdir::WalkDir;
+use walkdir::{DirEntry, WalkDir};
 
 #[derive(Clone, Debug)]
 pub enum DirEvent {
     Started,
     Finished,
-    DirEntry(PathBuf),
+    DirEntry(DirEntry),
 }
 
 /// Terminal events.
@@ -68,17 +68,13 @@ impl EventHandler {
                                 if !entry.path().starts_with(previous) {
                                     current = Some(entry.path().into());
                                     sender
-                                        .send(Event::Dir(DirEvent::DirEntry(
-                                            entry.path().to_path_buf(),
-                                        )))
+                                        .send(Event::Dir(DirEvent::DirEntry(entry)))
                                         .expect("Unable to send data through the channel.");
                                 }
                             } else {
                                 current = Some(entry.path().into());
                                 sender
-                                    .send(Event::Dir(DirEvent::DirEntry(
-                                        entry.path().to_path_buf(),
-                                    )))
+                                    .send(Event::Dir(DirEvent::DirEntry(entry)))
                                     .expect("Unable to send data through the channel.");
                             }
                         }

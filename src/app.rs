@@ -1,5 +1,5 @@
 pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
-use crate::item::Item;
+use crate::dir_entry_item::DirEntryItem;
 use crate::list::StatefulList;
 use std::error;
 
@@ -8,7 +8,7 @@ use std::error;
 pub struct App {
     /// Is the application running?
     pub running: bool,
-    pub list: StatefulList<Item>,
+    pub list: StatefulList<DirEntryItem>,
     pub loading: bool,
 }
 
@@ -30,7 +30,7 @@ impl App {
         self.running = false;
     }
 
-    pub fn push(&mut self, item: Item) {
+    pub fn push(&mut self, item: DirEntryItem) {
         self.list.push(item);
     }
 
