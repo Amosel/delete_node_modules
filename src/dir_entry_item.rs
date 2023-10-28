@@ -13,7 +13,7 @@ pub trait Toggle {
     fn is_on(&self) -> bool;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DirEntryItem {
     pub entry: DirEntry,
     pub is_on: bool,
@@ -26,19 +26,11 @@ impl DirEntryItem {
             is_on: false,
         })
     }
-    pub fn title(&self) -> String {
-        self.entry.path().to_str().unwrap().to_string()
-            + " - "
-            + &self.size_mb().unwrap().to_string()
-            + " MB"
-    }
-
-    fn size_mb(&self) -> Result<f64, std::io::Error> {
+    pub fn size(&self) -> Result<u64, std::io::Error> {
         let metadata = fs::metadata(self.entry.path())
             .context("get the entry's metadata")
             .unwrap();
-        let size = metadata.len();
-        Ok((size as f64) / 1_048_576 as f64) // convert bytes to MB
+        Ok(metadata.len())
     }
 }
 

@@ -1,7 +1,7 @@
 use delete_node_modules::app::{App, AppResult};
 use delete_node_modules::dir_entry_item::DirEntryItem;
 use delete_node_modules::event::{DirEvent, Event, EventHandler};
-use delete_node_modules::handler::handle_key_events;
+use delete_node_modules::key_event_handler::handle_key_events;
 use delete_node_modules::tui::Tui;
 use std::io;
 use tui::backend::CrosstermBackend;

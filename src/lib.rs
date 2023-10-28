@@ -11,7 +11,7 @@ pub mod ui;
 pub mod tui;
 
 /// Event handler.
-pub mod handler;
+pub mod key_event_handler;
 
 pub mod list;
 

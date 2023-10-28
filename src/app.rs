@@ -1,13 +1,13 @@
 pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
 use crate::dir_entry_item::DirEntryItem;
 use crate::list::StatefulList;
-use std::error;
+use std::{error, vec};
 
 #[derive(Debug)]
 pub enum GroupSelection {
     Selected,
     Deselected,
-    None
+    None,
 }
 
 /// Application.
@@ -45,5 +45,57 @@ impl App {
 
     pub fn toggle(&mut self) {
         self.list.toggle();
+    }
+
+    pub fn toggle_group(&mut self) {
+        self.group_selection = match self.group_selection {
+            GroupSelection::Selected => GroupSelection::Deselected,
+            GroupSelection::Deselected => {
+                if self.list.items.iter().any(|item| item.is_on) {
+                    GroupSelection::None
+                } else {
+                    GroupSelection::Selected
+                }
+            }
+            GroupSelection::None => GroupSelection::Selected,
+        }
+    }
+    pub fn total_selected_size_mb(&self) -> u64 {
+        match self.group_selection {
+            GroupSelection::Selected => self
+                .list
+                .items
+                .iter()
+                .map(|item| item.size().unwrap())
+                .sum(),
+            GroupSelection::Deselected => 0,
+            GroupSelection::None => self
+                .list
+                .items
+                .iter()
+                .filter(|item| item.is_on)
+                .map(|item| item.size().unwrap())
+                .sum(),
+        }
+    }
+    pub fn total_selected(&self) -> Vec<DirEntryItem> {
+        match self.group_selection {
+            GroupSelection::Selected => self.list.items.clone(),
+            GroupSelection::Deselected => vec![],
+            GroupSelection::None => self
+                .list
+                .items
+                .iter()
+                .filter(|item| item.is_on)
+                .cloned() // If DirEntryItem implements Clone
+                .collect(),
+        }
+    }
+    pub fn total_selected_count(&self) -> usize {
+        match self.group_selection {
+            GroupSelection::Deselected => 0,
+            GroupSelection::Selected => self.list.items.len(),
+            GroupSelection::None => self.list.items.iter().filter(|item| item.is_on).count(),
+        }
     }
 }

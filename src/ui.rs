@@ -8,6 +8,21 @@ use tui::{
     Frame,
 };
 
+fn format_size(bytes: u64) -> String {
+    const KIB: u64 = 1024;
+    const MIB: u64 = KIB * 1024;
+    const GIB: u64 = MIB * 1024;
+
+    if bytes >= GIB {
+        format!("{:.2} GB", bytes as f64 / GIB as f64)
+    } else if bytes >= MIB {
+        format!("{:.2} MB", bytes as f64 / MIB as f64)
+    } else if bytes >= KIB {
+        format!("{:.2} KB", bytes as f64 / KIB as f64)
+    } else {
+        format!("{} bytes", bytes)
+    }
+}
 /// Renders the user interface widgets.
 pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
     let layout = Layout::default()
@@ -24,7 +39,7 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
             "\
                 Press `Esc`, `Ctrl-C` or `q` to stop running.\n\
                 Press up and down to navigate and space bad to toggle selection\n\
-                Press a to toggle selecting all and deselecting all\n\
+                Press 'a' to toggle selecting all, deselecting all or per item selection\n\
                 ",
         ))
         .block(
@@ -44,12 +59,12 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
             .list
             .items
             .iter()
-            .map(|i| {
+            .map(|item| {
                 let select_char: &str = match app.group_selection {
                     GroupSelection::Deselected => "[ ] ",
                     GroupSelection::Selected => "[•] ",
                     GroupSelection::None => {
-                        if i.is_on {
+                        if item.is_on {
                             "[ ] "
                         } else {
                             "[•] "
@@ -57,25 +72,35 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
                     }
                 };
 
-                ListItem::new(Line::from(vec![
-                    Span::raw(select_char),
-                    Span::raw(i.title().clone()),
-                ]))
-                .style(Style::default().fg(Color::Black).bg(Color::White))
+                let title = item.entry.path().to_str().unwrap().to_string()
+                    + " - "
+                    + &format_size(item.size().unwrap());
+                ListItem::new(Line::from(vec![Span::raw(select_char), Span::raw(title)]))
+                    .style(Style::default().fg(Color::Black).bg(Color::White))
             })
             .collect();
 
         // Create a List from all list items and highlight the currently selected one
         let is_loading_text = if app.loading { ", Loading..." } else { "" };
+        let selected_number = app.total_selected_count();
+        let selected_number_text = if selected_number > 0 {
+            format!("{}", selected_number)
+        } else {
+            "0".to_string()
+        };
+
+        let selection_size_text = format_size(app.total_selected_size_mb());
         let list = List::new(items)
             .block(
                 Block::default()
                     .borders(Borders::ALL)
                     .border_type(BorderType::Rounded)
                     .title(format!(
-                        "Directories {}{}",
+                        "Directories {}/{} {} sleceted, {}",
+                        selected_number_text,
                         app.list.items.len(),
-                        is_loading_text
+                        is_loading_text,
+                        selection_size_text
                     )),
             )
             .highlight_style(
