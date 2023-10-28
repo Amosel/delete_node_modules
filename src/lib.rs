@@ -15,6 +15,4 @@ pub mod handler;
 
 pub mod list;
 
-pub mod item;
-
-pub mod dummy;
+pub mod dir_entry_item;
