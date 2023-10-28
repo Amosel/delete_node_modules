@@ -1,4 +1,4 @@
-use crate::app::App;
+use crate::app::{App, GroupSelection};
 use tui::{
     backend::Backend,
     layout::{Alignment, Constraint, Direction, Layout},
@@ -24,6 +24,7 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
             "\
                 Press `Esc`, `Ctrl-C` or `q` to stop running.\n\
                 Press up and down to navigate and space bad to toggle selection\n\
+                Press a to toggle selecting all and deselecting all\n\
                 ",
         ))
         .block(
@@ -44,7 +45,18 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
             .items
             .iter()
             .map(|i| {
-                let select_char: &str = if i.is_on { "[•] " } else { "[ ] " };
+                let select_char: &str = match app.group_selection {
+                    GroupSelection::Deselected => "[ ] ",
+                    GroupSelection::Selected => "[•] ",
+                    GroupSelection::None => {
+                        if i.is_on {
+                            "[ ] "
+                        } else {
+                            "[•] "
+                        }
+                    }
+                };
+
                 ListItem::new(Line::from(vec![
                     Span::raw(select_char),
                     Span::raw(i.title().clone()),

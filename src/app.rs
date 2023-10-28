@@ -3,6 +3,13 @@ use crate::dir_entry_item::DirEntryItem;
 use crate::list::StatefulList;
 use std::error;
 
+#[derive(Debug)]
+pub enum GroupSelection {
+    Selected,
+    Deselected,
+    None
+}
+
 /// Application.
 #[derive(Debug)]
 pub struct App {
@@ -10,6 +17,7 @@ pub struct App {
     pub running: bool,
     pub list: StatefulList<DirEntryItem>,
     pub loading: bool,
+    pub group_selection: GroupSelection,
 }
 
 impl App {
@@ -19,6 +27,7 @@ impl App {
             running: true,
             list: StatefulList::new_empty(),
             loading: true,
+            group_selection: GroupSelection::None,
         }
     }
 
