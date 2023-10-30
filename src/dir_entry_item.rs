@@ -1,4 +1,3 @@
-use anyhow::Result;
 use walkdir::DirEntry;
 
 pub trait Toggle {
@@ -17,15 +16,17 @@ pub struct DirEntryItem {
     pub entry: DirEntry,
     pub is_on: bool,
     pub size: u64,
+    pub deleting: bool,
 }
 
 impl DirEntryItem {
-    pub fn from_entry(entry: DirEntry, size: u64) -> Result<DirEntryItem> {
-        Ok(DirEntryItem {
+    pub fn from_entry(entry: DirEntry, size: u64) -> DirEntryItem {
+        DirEntryItem {
             entry,
             size,
             is_on: false,
-        })
+            deleting: false,
+        }
     }
 }
 

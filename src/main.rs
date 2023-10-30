@@ -1,6 +1,5 @@
 use delete_node_modules::app::{App, AppResult};
-use delete_node_modules::dir_entry_item::DirEntryItem;
-use delete_node_modules::event::{DirEvent, Event, EventHandler};
+use delete_node_modules::event::{Event, EventHandler};
 use delete_node_modules::key_event_handler::handle_key_events;
 use delete_node_modules::tui::Tui;
 use std::io;
@@ -28,17 +27,8 @@ fn main() -> AppResult<()> {
             Event::Key(key_event) => handle_key_events(key_event, &mut app)?,
             Event::Mouse(_) => {}
             Event::Resize(_, _) => {}
-            Event::Dir(d) => match d {
-                DirEvent::Started => {
-                    app.loading = true;
-                }
-                DirEvent::Finished => {
-                    app.loading = false;
-                }
-                DirEvent::DirEntry(e, size) => {
-                    app.push(DirEntryItem::from_entry(e, size)?);
-                }
-            },
+            Event::Entry(d) => app.on_entry(d),
+            Event::Delete(d) => app.on_delete(d),
         }
     }
 
