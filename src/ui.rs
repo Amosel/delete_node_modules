@@ -55,26 +55,41 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
     );
 
     if !app.list.items.is_empty() {
+        let mut selected_count: usize = 0;
+        let mut selection_size: u64 = 0;
         let items: Vec<ListItem> = app
             .list
             .items
             .iter()
             .map(|item| {
-                let select_char: &str = match app.group_selection {
-                    GroupSelection::Deselected => "[ ] ",
-                    GroupSelection::Selected => "[•] ",
+                let mut select_char: &str = "[ ] ";
+                match app.group_selection {
+                    GroupSelection::Deselected => {}
+                    GroupSelection::Selected => {
+                        select_char = "[•] ";
+                        selected_count += 1;
+                        selection_size += item.size;
+                    }
                     GroupSelection::None => {
                         if item.is_on {
-                            "[ ] "
+                            select_char = "[ ] ";
                         } else {
-                            "[•] "
+                            select_char = "[•] ";
+                            selected_count += 1;
+                            selection_size += item.size;
                         }
                     }
                 };
 
-                let title = item.entry.path().to_str().unwrap().to_string()
+                let title: String = item
+                    .entry
+                    .path()
+                    .to_str()
+                    .unwrap()
+                    .to_string()
+                    // .replace("node_modules", "")
                     + " - "
-                    + &format_size(item.size().unwrap());
+                    + &format_size(item.size);
                 ListItem::new(Line::from(vec![Span::raw(select_char), Span::raw(title)]))
                     .style(Style::default().fg(Color::Black).bg(Color::White))
             })
@@ -82,26 +97,25 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
 
         // Create a List from all list items and highlight the currently selected one
         let is_loading_text = if app.loading { ", Loading..." } else { "" };
-        let selected_number = app.total_selected_count();
-        let selected_number_text = if selected_number > 0 {
-            format!("{}", selected_number)
+        let selected_number_text = if selected_count > 0 {
+            format!("{}", selected_count)
         } else {
             "0".to_string()
         };
-
-        let selection_size_text = format_size(app.total_selected_size_mb());
+        let selection_size_text = format_size(selection_size);
+        let title = format!(
+            "Directories {}/{} {} selected, {}",
+            selected_number_text,
+            app.list.items.len(),
+            is_loading_text,
+            selection_size_text
+        );
         let list = List::new(items)
             .block(
                 Block::default()
                     .borders(Borders::ALL)
                     .border_type(BorderType::Rounded)
-                    .title(format!(
-                        "Directories {}/{} {} sleceted, {}",
-                        selected_number_text,
-                        app.list.items.len(),
-                        is_loading_text,
-                        selection_size_text
-                    )),
+                    .title(title),
             )
             .highlight_style(
                 Style::default()

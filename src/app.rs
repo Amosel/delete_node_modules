@@ -1,7 +1,7 @@
 pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
 use crate::dir_entry_item::DirEntryItem;
 use crate::list::StatefulList;
-use std::{error, vec};
+use std::error;
 
 #[derive(Debug)]
 pub enum GroupSelection {
@@ -27,7 +27,7 @@ impl App {
             running: true,
             list: StatefulList::new_empty(),
             loading: true,
-            group_selection: GroupSelection::None,
+            group_selection: GroupSelection::Selected,
         }
     }
 
@@ -58,44 +58,6 @@ impl App {
                 }
             }
             GroupSelection::None => GroupSelection::Selected,
-        }
-    }
-    pub fn total_selected_size_mb(&self) -> u64 {
-        match self.group_selection {
-            GroupSelection::Selected => self
-                .list
-                .items
-                .iter()
-                .map(|item| item.size().unwrap())
-                .sum(),
-            GroupSelection::Deselected => 0,
-            GroupSelection::None => self
-                .list
-                .items
-                .iter()
-                .filter(|item| item.is_on)
-                .map(|item| item.size().unwrap())
-                .sum(),
-        }
-    }
-    pub fn total_selected(&self) -> Vec<DirEntryItem> {
-        match self.group_selection {
-            GroupSelection::Selected => self.list.items.clone(),
-            GroupSelection::Deselected => vec![],
-            GroupSelection::None => self
-                .list
-                .items
-                .iter()
-                .filter(|item| item.is_on)
-                .cloned() // If DirEntryItem implements Clone
-                .collect(),
-        }
-    }
-    pub fn total_selected_count(&self) -> usize {
-        match self.group_selection {
-            GroupSelection::Deselected => 0,
-            GroupSelection::Selected => self.list.items.len(),
-            GroupSelection::None => self.list.items.iter().filter(|item| item.is_on).count(),
         }
     }
 }
