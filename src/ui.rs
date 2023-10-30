@@ -27,7 +27,10 @@ fn format_size(bytes: u64) -> String {
 pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
     let layout = Layout::default()
         .direction(Direction::Vertical)
-        .constraints(vec![Constraint::Percentage(40), Constraint::Percentage(60)])
+        .constraints(vec![
+            Constraint::Length(6), // Fixed size for the header
+            Constraint::Min(0)      // Takes up the rest of the space
+        ])
         .split(frame.size());
 
     // This is where you add new widgets.
