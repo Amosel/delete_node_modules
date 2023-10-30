@@ -71,7 +71,7 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
                         selection_size += item.size;
                     }
                     GroupSelection::None => {
-                        if item.is_on {
+                        if !item.is_on {
                             select_char = "[ ] ";
                         } else {
                             select_char = "[•] ";
