@@ -40,6 +40,23 @@ pub struct EventHandler {
     handler: thread::JoinHandle<()>,
 }
 
+fn calculate_dir_size<P: AsRef<Path>>(path: P) -> std::io::Result<u64> {
+    let mut size = 0;
+
+    for entry in WalkDir::new(path)
+        .min_depth(1) // skip the root node_modules directory itself
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        let metadata = entry.metadata()?;
+        if metadata.is_file() {
+            size += metadata.len();
+        }
+    }
+
+    Ok(size)
+}
+
 impl EventHandler {
     /// Constructs a new instance of [`EventHandler`].
     pub fn new(tick_rate: u64) -> Self {
@@ -94,14 +111,14 @@ impl EventHandler {
                         if let Some(ref previous) = current {
                             if !entry.path().starts_with(previous) {
                                 current = Some(entry.path().into());
-                                let size = entry.metadata().unwrap().len();
+                                let size: u64 = calculate_dir_size(entry.path()).unwrap();
                                 walkdir_sender
                                     .send(Event::Dir(DirEvent::DirEntry(entry, size)))
                                     .expect("Unable to send data through the channel.");
                             }
                         } else {
                             current = Some(entry.path().into());
-                            let size = entry.metadata().unwrap().len();
+                            let size: u64 = calculate_dir_size(entry.path()).unwrap();
                             walkdir_sender
                                 .send(Event::Dir(DirEvent::DirEntry(entry, size)))
                                 .expect("Unable to send data through the channel.");
