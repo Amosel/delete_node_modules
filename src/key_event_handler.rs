@@ -21,6 +21,9 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         KeyCode::Left => app.set_off_and_next(),
         KeyCode::Down => app.next(),
         KeyCode::Up => app.previous(),
+        KeyCode::Tab => {
+            app.toggle_group();
+        }
         KeyCode::Char('a') => {
             app.toggle_group();
         }

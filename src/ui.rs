@@ -39,7 +39,7 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
             "\
                 Press `Esc`, `Ctrl-C` or `q` to stop running.\n\
                 Press up and down to navigate and space bad to toggle selection\n\
-                Press 'a' to toggle selecting all, deselecting all or per item selection\n\
+                Press 'a' or Tab to toggle selection between all, none or per item selection\n\
                 ",
         ))
         .block(
@@ -104,7 +104,7 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
         };
         let selection_size_text = format_size(selection_size);
         let title = format!(
-            "Directories {}/{} {} selected, {}",
+            "Directories {}/{} {} Volume:{}",
             selected_number_text,
             app.list.items.len(),
             is_loading_text,
