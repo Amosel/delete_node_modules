@@ -1,9 +1,11 @@
 use crate::app::AppResult;
 use crossterm::event::{self, Event as CrosstermEvent, KeyEvent, MouseEvent};
-use std::path::{Path, PathBuf};
-use std::sync::mpsc;
-use std::thread::{self};
-use std::time::{Duration, Instant};
+use std::{
+    path::{Path, PathBuf},
+    sync::mpsc::{channel, Receiver, Sender},
+    thread::{self},
+    time::{Duration, Instant},
+};
 use walkdir::{DirEntry, WalkDir};
 
 #[derive(Clone, Debug)]
@@ -19,7 +21,7 @@ pub enum DirDeleteProcess {
     Finished(usize),
     Deleting(DirEntry),
     Deleted(DirEntry),
-    Failed(DirEntry),
+    Failed(DirEntry, String),
 }
 
 /// Terminal events.
@@ -43,11 +45,32 @@ pub enum Event {
 #[derive(Debug)]
 pub struct EventHandler {
     /// Event sender channel.
-    sender: mpsc::Sender<Event>,
+    pub sender: Sender<Event>,
     /// Event receiver channel.
-    receiver: mpsc::Receiver<Event>,
+    pub receiver: Receiver<Event>,
     /// Event handler thread.
     handler: thread::JoinHandle<()>,
+}
+
+pub fn delete(items: Vec<DirEntry>, sender: &Sender<Event>) {
+    let sender = sender.clone();
+    let _ = sender.send(Event::Delete(DirDeleteProcess::Started(items.len())));
+
+    for item in items {
+        let sender = sender.clone();
+        thread::spawn(move || {
+            let _ = sender.send(Event::Delete(DirDeleteProcess::Deleting(item.clone())));
+            let result = std::fs::remove_dir_all(item.path());
+            match result {
+                Ok(_) => {
+                    let _ = sender.send(Event::Delete(DirDeleteProcess::Deleted(item)));
+                }
+                Err(e) => {
+                    let _ = sender.send(Event::Delete(DirDeleteProcess::Failed(item, e.to_string())));
+                }
+            }
+        });
+    }
 }
 
 fn calculate_dir_size<P: AsRef<Path>>(path: P) -> std::io::Result<u64> {
@@ -67,7 +90,7 @@ fn calculate_dir_size<P: AsRef<Path>>(path: P) -> std::io::Result<u64> {
     Ok(size)
 }
 
-fn lifecycle(sender: mpsc::Sender<Event>, tick_rate: Duration) -> thread::JoinHandle<()> {
+fn lifecycle(sender: Sender<Event>, tick_rate: Duration) -> thread::JoinHandle<()> {
     thread::spawn(move || {
         let mut last_tick = Instant::now();
         loop {
@@ -93,7 +116,7 @@ fn lifecycle(sender: mpsc::Sender<Event>, tick_rate: Duration) -> thread::JoinHa
     })
 }
 
-fn walk(sender: mpsc::Sender<Event>) -> thread::JoinHandle<()> {
+fn walk(sender: Sender<Event>) -> thread::JoinHandle<()> {
     thread::spawn(move || {
         sender
             .send(Event::Entry(DirEntryProcess::Started))
@@ -135,7 +158,7 @@ impl EventHandler {
     /// Constructs a new instance of [`EventHandler`].
     pub fn new(tick_rate: u64) -> Self {
         let tick_rate = Duration::from_millis(tick_rate);
-        let (ui_sender, receiver) = mpsc::channel();
+        let (ui_sender, receiver) = channel();
         let handler = {
             lifecycle(ui_sender.clone(), tick_rate);
             walk(ui_sender.clone())
@@ -154,5 +177,9 @@ impl EventHandler {
     /// there is no data available and it's possible for more data to be sent.
     pub fn next(&self) -> AppResult<Event> {
         Ok(self.receiver.recv()?)
+    }
+
+    pub fn get_sender(&self) -> Sender<Event> {
+        self.sender.clone()
     }
 }

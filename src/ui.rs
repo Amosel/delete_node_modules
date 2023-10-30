@@ -27,7 +27,7 @@ fn format_size(bytes: u64) -> String {
 pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
     let layout = Layout::default()
         .direction(Direction::Vertical)
-        .constraints(vec![Constraint::Percentage(30), Constraint::Percentage(70)])
+        .constraints(vec![Constraint::Percentage(40), Constraint::Percentage(60)])
         .split(frame.size());
 
     // This is where you add new widgets.
@@ -38,8 +38,9 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
         Paragraph::new(format!(
             "\
                 Press `Esc`, `Ctrl-C` or `q` to stop running.\n\
-                Press up and down to navigate and space bad to toggle selection\n\
-                Press 'a' or Tab to toggle selection between all, none or per item selection\n\
+                Press `up` and `down` to navigate and `space` to toggle selection\n\
+                Press `a` or `Tab` to toggle selection between all, none or per item\n\
+                Press `Enter` to delete currently selected items\n\
                 ",
         ))
         .block(
@@ -62,19 +63,17 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
             .items
             .iter()
             .map(|item| {
-                let mut select_char: &str = "[ ] ";
+                let mut is_selectable = false;
                 match app.group_selection {
                     GroupSelection::Deselected => {}
                     GroupSelection::Selected => {
-                        select_char = "[•] ";
+                        is_selectable = true;
                         selected_count += 1;
                         selection_size += item.size;
                     }
                     GroupSelection::None => {
-                        if !item.is_on {
-                            select_char = "[ ] ";
-                        } else {
-                            select_char = "[•] ";
+                        if item.is_on {
+                            is_selectable = true;
                             selected_count += 1;
                             selection_size += item.size;
                         }
@@ -90,6 +89,14 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
                     // .replace("node_modules", "")
                     + " - "
                     + &format_size(item.size);
+
+                let select_char: &str = if item.deleting {
+                    "[x] "
+                } else if is_selectable {
+                    "[•] "
+                } else {
+                    "[ ] "
+                };
                 ListItem::new(Line::from(vec![Span::raw(select_char), Span::raw(title)]))
                     .style(Style::default().fg(Color::Black).bg(Color::White))
             })

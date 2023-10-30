@@ -1,6 +1,6 @@
 pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
 use crate::dir_entry_item::DirEntryItem;
-use crate::event::{DirDeleteProcess, DirEntryProcess, Event};
+use crate::event::{DirDeleteProcess, DirEntryProcess};
 use crate::list::StatefulList;
 use std::error;
 
@@ -20,6 +20,7 @@ pub struct App {
     pub loading: bool,
     pub group_selection: GroupSelection,
     pub deleting: usize,
+    pub has_error: bool,
 }
 
 impl App {
@@ -31,6 +32,7 @@ impl App {
             loading: true,
             group_selection: GroupSelection::Selected,
             deleting: 0,
+            has_error: false,
         }
     }
 
@@ -107,12 +109,22 @@ impl App {
             DirDeleteProcess::Deleted(e) => {
                 self.list.items.retain(|item| item.entry.path() != e.path());
             }
-            DirDeleteProcess::Failed(_) => todo!(),
+            DirDeleteProcess::Failed(e, text) => {
+                if let Some(item) = self
+                    .list
+                    .items
+                    .iter_mut()
+                    .find(|item| item.entry.path() == e.path())
+                {
+                    self.has_error = true;
+                    item.error = Some(text);
+                }
+            }
         }
     }
 
-    pub fn process_deletes(&mut self, sender: std::sync::mpsc::Sender<Event>) {
-        let items = match self.group_selection {
+    pub fn items_to_delete(&self) -> Vec<DirEntryItem> {
+        match self.group_selection {
             GroupSelection::Selected => self.list.items.iter().cloned().collect(),
             GroupSelection::Deselected => {
                 vec![]
@@ -124,29 +136,6 @@ impl App {
                 .filter(|item| item.is_on)
                 .cloned()
                 .collect(),
-        };
-        if items.is_empty() {
-            return;
-        }
-
-        let _ = sender.send(Event::Delete(DirDeleteProcess::Started(items.len())));
-
-        for item in items {
-            let sender = sender.clone();
-            std::thread::spawn(move || {
-                let _ = sender.send(Event::Delete(DirDeleteProcess::Deleting(
-                    item.entry.clone(),
-                )));
-                let result = std::fs::remove_dir_all(item.entry.path());
-                match result {
-                    Ok(_) => {
-                        let _ = sender.send(Event::Delete(DirDeleteProcess::Deleted(item.entry)));
-                    }
-                    Err(_) => {
-                        let _ = sender.send(Event::Delete(DirDeleteProcess::Failed(item.entry)));
-                    }
-                }
-            });
         }
     }
 }
