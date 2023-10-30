@@ -27,12 +27,6 @@ impl DirEntryItem {
             is_on: false,
         })
     }
-    // pub fn size(&self) -> Result<u64, std::io::Error> {
-    //     let metadata = fs::metadata(self.entry.path())
-    //         .context("get the entry's metadata")
-    //         .unwrap();
-    //     Ok(metadata.len())
-    // }
 }
 
 impl Toggle for DirEntryItem {
