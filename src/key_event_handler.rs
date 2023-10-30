@@ -1,4 +1,4 @@
-use crate::app::{App, AppResult, GroupSelection};
+use crate::app::{App, AppResult};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 /// Handles the key events and updates the state of [`App`].
@@ -15,11 +15,12 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
             }
         }
         KeyCode::Char(' ') => {
-            app.list.toggle();
-            app.group_selection = GroupSelection::None;
+            app.toggle();
         }
-        KeyCode::Down => app.list.next(),
-        KeyCode::Up => app.list.previous(),
+        KeyCode::Right => app.set_on_and_next(),
+        KeyCode::Left => app.set_off_and_next(),
+        KeyCode::Down => app.next(),
+        KeyCode::Up => app.previous(),
         KeyCode::Char('a') => {
             app.toggle_group();
         }

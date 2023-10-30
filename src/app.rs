@@ -45,6 +45,25 @@ impl App {
 
     pub fn toggle(&mut self) {
         self.list.toggle();
+        self.group_selection = GroupSelection::None;
+    }
+
+    pub fn set_on_and_next(&mut self) {
+        self.list.set_on_and_next();
+        self.group_selection = GroupSelection::None;
+    }
+
+    pub fn set_off_and_next(&mut self) {
+        self.list.set_off_and_next();
+        self.group_selection = GroupSelection::None;
+    }
+
+    pub fn next(&mut self) {
+        self.list.next();
+    }
+
+    pub fn previous(&mut self) {
+        self.list.previous();
     }
 
     pub fn toggle_group(&mut self) {
