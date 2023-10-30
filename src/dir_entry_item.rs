@@ -1,5 +1,4 @@
-use anyhow::{Context, Result};
-use std::fs;
+use anyhow::Result;
 use walkdir::DirEntry;
 
 pub trait Toggle {
@@ -17,21 +16,23 @@ pub trait Toggle {
 pub struct DirEntryItem {
     pub entry: DirEntry,
     pub is_on: bool,
+    pub size: u64,
 }
 
 impl DirEntryItem {
-    pub fn from_entry(entry: DirEntry) -> Result<DirEntryItem> {
+    pub fn from_entry(entry: DirEntry, size: u64) -> Result<DirEntryItem> {
         Ok(DirEntryItem {
             entry,
+            size,
             is_on: false,
         })
     }
-    pub fn size(&self) -> Result<u64, std::io::Error> {
-        let metadata = fs::metadata(self.entry.path())
-            .context("get the entry's metadata")
-            .unwrap();
-        Ok(metadata.len())
-    }
+    // pub fn size(&self) -> Result<u64, std::io::Error> {
+    //     let metadata = fs::metadata(self.entry.path())
+    //         .context("get the entry's metadata")
+    //         .unwrap();
+    //     Ok(metadata.len())
+    // }
 }
 
 impl Toggle for DirEntryItem {

@@ -10,7 +10,7 @@ use walkdir::{DirEntry, WalkDir};
 pub enum DirEvent {
     Started,
     Finished,
-    DirEntry(DirEntry),
+    DirEntry(DirEntry, u64),
 }
 
 /// Terminal events.
@@ -46,45 +46,9 @@ impl EventHandler {
         let tick_rate = Duration::from_millis(tick_rate);
         let (sender, receiver) = mpsc::channel();
         let handler = {
-            let sender = sender.clone();
+            let crossterm_sender = sender.clone();
             thread::spawn(move || {
                 let mut last_tick = Instant::now();
-                {
-                    sender
-                        .send(Event::Dir(DirEvent::Started))
-                        .expect("Unable to send data through the channel.");
-                    let path = Path::new("."); // Start from the current directory.
-                    let mut current: Option<PathBuf> = None;
-                    for entry in WalkDir::new(path)
-                        .follow_links(true) // Follow symbolic links.
-                        .into_iter()
-                        .filter_map(Result::ok)
-                    // Filter out potential errors during iteration.
-                    {
-                        if entry.file_type().is_dir()
-                            && entry.file_name().to_string_lossy() == "node_modules"
-                        {
-                            if let Some(ref previous) = current {
-                                if !entry.path().starts_with(previous) {
-                                    current = Some(entry.path().into());
-                                    sender
-                                        .send(Event::Dir(DirEvent::DirEntry(entry)))
-                                        .expect("Unable to send data through the channel.");
-                                }
-                            } else {
-                                current = Some(entry.path().into());
-                                sender
-                                    .send(Event::Dir(DirEvent::DirEntry(entry)))
-                                    .expect("Unable to send data through the channel.");
-                            }
-                        }
-                        // Send each valid directory entry through the channel.
-                    }
-                    sender
-                        .send(Event::Dir(DirEvent::Finished))
-                        .expect("Unable to send finish event.");
-                }
-
                 loop {
                     let timeout = tick_rate
                         .checked_sub(last_tick.elapsed())
@@ -92,21 +56,65 @@ impl EventHandler {
 
                     if event::poll(timeout).expect("no events available") {
                         match event::read().expect("unable to read event") {
-                            CrosstermEvent::Key(e) => sender.send(Event::Key(e)),
-                            CrosstermEvent::Mouse(e) => sender.send(Event::Mouse(e)),
-                            CrosstermEvent::Resize(w, h) => sender.send(Event::Resize(w, h)),
+                            CrosstermEvent::Key(e) => crossterm_sender.send(Event::Key(e)),
+                            CrosstermEvent::Mouse(e) => crossterm_sender.send(Event::Mouse(e)),
+                            CrosstermEvent::Resize(w, h) => {
+                                crossterm_sender.send(Event::Resize(w, h))
+                            }
                             _ => unimplemented!(),
                         }
                         .expect("failed to send terminal event")
                     }
 
                     if last_tick.elapsed() >= tick_rate {
-                        sender.send(Event::Tick).expect("failed to send tick event");
+                        crossterm_sender
+                            .send(Event::Tick)
+                            .expect("failed to send tick event");
                         last_tick = Instant::now();
                     }
                 }
+            });
+            let walkdir_sender = sender.clone();
+
+            thread::spawn(move || {
+                walkdir_sender
+                    .send(Event::Dir(DirEvent::Started))
+                    .expect("Unable to send data through the channel.");
+                let path = Path::new("."); // Start from the current directory.
+                let mut current: Option<PathBuf> = None;
+                for entry in WalkDir::new(path)
+                    .follow_links(false) // Follow symbolic links.
+                    .into_iter()
+                    .filter_map(Result::ok)
+                // Filter out potential errors during iteration.
+                {
+                    if entry.file_type().is_dir()
+                        && entry.file_name().to_string_lossy() == "node_modules"
+                    {
+                        if let Some(ref previous) = current {
+                            if !entry.path().starts_with(previous) {
+                                current = Some(entry.path().into());
+                                let size = entry.metadata().unwrap().len();
+                                walkdir_sender
+                                    .send(Event::Dir(DirEvent::DirEntry(entry, size)))
+                                    .expect("Unable to send data through the channel.");
+                            }
+                        } else {
+                            current = Some(entry.path().into());
+                            let size = entry.metadata().unwrap().len();
+                            walkdir_sender
+                                .send(Event::Dir(DirEvent::DirEntry(entry, size)))
+                                .expect("Unable to send data through the channel.");
+                        }
+                    }
+                    // Send each valid directory entry through the channel.
+                }
+                walkdir_sender
+                    .send(Event::Dir(DirEvent::Finished))
+                    .expect("Unable to send finish event.");
             })
         };
+
         Self {
             sender,
             receiver,

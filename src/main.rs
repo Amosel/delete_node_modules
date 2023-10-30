@@ -35,8 +35,8 @@ fn main() -> AppResult<()> {
                 DirEvent::Finished => {
                     app.loading = false;
                 }
-                DirEvent::DirEntry(e) => {
-                    app.push(DirEntryItem::from_entry(e)?);
+                DirEvent::DirEntry(e, size) => {
+                    app.push(DirEntryItem::from_entry(e, size)?);
                 }
             },
         }
