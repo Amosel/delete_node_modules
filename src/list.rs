@@ -177,7 +177,7 @@ impl<T: Toggle> StatefulList<T> {
             self.state
                 .selected()
                 .and_then(|selected| Some((selected + 1) % self.items.len()))
-                .or_else(|| if self.items.len() == 0 { None } else { Some(0) })
+                .or_else(|| if self.items.is_empty() { None } else { Some(0) })
         };
 
         self.state.select(next_index);
@@ -203,7 +203,7 @@ impl<T: Toggle> StatefulList<T> {
                 .selected()
                 .and_then(|selected| Some((selected + self.items.len() - 1) % self.items.len()))
                 .or_else(|| {
-                    if self.items.len() == 0 {
+                    if self.items.is_empty() {
                         None
                     } else {
                         Some(self.items.len() - 1)
