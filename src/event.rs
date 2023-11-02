@@ -17,8 +17,8 @@ pub enum DirEntryProcess {
 
 #[derive(Clone, Debug)]
 pub enum DirDeleteProcess {
-    Started(usize),
-    Finished(usize),
+    BatchStarted(usize),
+    BatchFinished(usize),
     Deleting(DirEntry),
     Deleted(DirEntry),
     Failed(DirEntry, String),
@@ -54,7 +54,7 @@ pub struct EventHandler {
 
 pub fn delete(items: Vec<DirEntry>, sender: &Sender<Event>) {
     let sender = sender.clone();
-    let _ = sender.send(Event::Delete(DirDeleteProcess::Started(items.len())));
+    let _ = sender.send(Event::Delete(DirDeleteProcess::BatchStarted(items.len())));
 
     for item in items {
         let sender = sender.clone();

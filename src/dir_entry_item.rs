@@ -17,7 +17,7 @@ pub struct DirEntryItem {
     pub is_on: bool,
     pub size: u64,
     pub deleting: bool,
-    pub error: Option<String>,
+    pub error_message: Option<String>,
 }
 
 impl DirEntryItem {
@@ -27,21 +27,21 @@ impl DirEntryItem {
             size,
             is_on: false,
             deleting: false,
-            error: None,
+            error_message: None,
         }
     }
 }
 
 impl Toggle for DirEntryItem {
     fn toggle(&mut self) {
-        if self.deleting || self.error.is_some() {
+        if self.deleting || self.error_message.is_some() {
             return;
         }
         self.is_on = !self.is_on;
     }
 
     fn set_is_on(&mut self, is_on: bool) {
-        if self.deleting || self.error.is_some() {
+        if self.deleting || self.error_message.is_some() {
             return;
         }
         self.is_on = is_on;
@@ -50,4 +50,10 @@ impl Toggle for DirEntryItem {
     fn is_on(&self) -> bool {
         self.is_on
     }
+}
+
+pub trait DirEntryItemList {
+    fn set_deleting(&mut self, e: DirEntry);
+    fn set_failed(&mut self, e: DirEntry, error_message: String);
+    fn delete(&mut self, e: DirEntry);
 }

@@ -1,4 +1,7 @@
-use crate::app::{App, GroupSelection};
+use crate::{
+    app::{App, GroupSelection},
+    list::Filterable,
+};
 use tui::{
     backend::Backend,
     layout::{Alignment, Constraint, Direction, Layout},
@@ -25,14 +28,14 @@ fn format_size(bytes: u64) -> String {
 }
 /// Renders the user interface widgets.
 pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
-    let layout = Layout::default()
+    let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints(vec![
             Constraint::Length(6), // Fixed size for the header
-            Constraint::Min(0)      // Takes up the rest of the space
+            Constraint::Min(0),    // Takes up the rest of the space
+            Constraint::Length(3), // For status/feedback
         ])
         .split(frame.size());
-
     // This is where you add new widgets.
     // See the following resources:
     // - https://docs.rs/ratatui/latest/ratatui/widgets/index.html
@@ -55,33 +58,53 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
         )
         .style(Style::default().fg(Color::Cyan).bg(Color::Black))
         .alignment(Alignment::Center),
-        layout[0],
+        chunks[0],
     );
 
-    if !app.list.items.is_empty() {
+    if !app.list.visible_items().next().is_none() {
         let mut selected_count: usize = 0;
         let mut selection_size: u64 = 0;
+        let has_search_input = match app.filter_input.as_deref() {
+            None => false,
+            Some(s) => s.len() > 0,
+        };
+
         let items: Vec<ListItem> = app
             .list
-            .items
-            .iter()
+            .visible_items()
+            .filter(|item| {
+                if let Some(filter_input) = app.filter_input.as_ref() {
+                    item.entry.path().to_str().unwrap().contains(filter_input)
+                } else {
+                    true
+                }
+            })
+            // .filter(|item| item.entry.path().contains(&filter_input))
             .map(|item| {
-                let mut is_selectable = false;
-                match app.group_selection {
-                    GroupSelection::Deselected => {}
-                    GroupSelection::Selected => {
-                        is_selectable = true;
-                        selected_count += 1;
-                        selection_size += item.size;
-                    }
-                    GroupSelection::None => {
+                let mut is_on = false;
+
+                if has_search_input {
+                    is_on = true;
+                    selected_count += 1;
+                    selection_size += item.size;
+                } else {
+                    if let Some(group_selection) = &app.group_selection {
+                        match group_selection {
+                            GroupSelection::All => {}
+                            GroupSelection::None => {
+                                is_on = true;
+                                selected_count += 1;
+                                selection_size += item.size;
+                            }
+                        }
+                    } else {
                         if item.is_on {
-                            is_selectable = true;
+                            is_on = true;
                             selected_count += 1;
                             selection_size += item.size;
                         }
                     }
-                };
+                }
 
                 let title: String = item
                     .entry
@@ -89,13 +112,12 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
                     .to_str()
                     .unwrap()
                     .to_string()
-                    // .replace("node_modules", "")
                     + " - "
                     + &format_size(item.size);
 
                 let select_char: &str = if item.deleting {
                     "[x] "
-                } else if is_selectable {
+                } else if is_on {
                     "[•] "
                 } else {
                     "[ ] "
@@ -113,12 +135,21 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
             "0".to_string()
         };
         let selection_size_text = format_size(selection_size);
+        let search_text = if app.search {
+            format!(
+                " [ Search (toggle with /) {}]",
+                app.filter_input.as_ref().unwrap_or(&"".to_string())
+            )
+        } else {
+            "".to_string()
+        };
         let title = format!(
-            "Directories {}/{} {} Volume:{}",
+            "Directories {}/{} {} Volume:{} --{}",
             selected_number_text,
-            app.list.items.len(),
+            items.len(),
             is_loading_text,
-            selection_size_text
+            selection_size_text,
+            search_text
         );
         let list = List::new(items)
             .block(
@@ -127,16 +158,29 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
                     .border_type(BorderType::Rounded)
                     .title(title),
             )
-            .highlight_style(
-                Style::default()
-                    .bg(Color::Black)
-                    .fg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD),
-            )
+            .highlight_style(Style::default().fg(Color::Black).bg(Color::White))
             .highlight_symbol(">> ");
 
         // We can now render the item list
-        frame.render_stateful_widget(list, layout[1], &mut app.list.state);
+        frame.render_stateful_widget(list, chunks[1], &mut app.list.state);
+
+        if app.search {
+            if let Some(filter_input) = app.filter_input.as_ref() {
+                // Assuming 'filter_input' holds the text entered by the user
+                let filter_text = Paragraph::new(filter_input.clone())
+                    .block(Block::default().borders(Borders::ALL).title("Filter"))
+                    .style(
+                        Style::default()
+                            .bg(Color::Black)
+                            .fg(Color::Cyan)
+                            .add_modifier(Modifier::BOLD),
+                    );
+                frame.render_widget(filter_text, chunks[2]);
+            } else {
+                let filter_block = Block::default().borders(Borders::ALL).title("Filter");
+                frame.render_widget(filter_block, chunks[2]);
+            }
+        }
     } else if !app.loading {
         frame.render_widget(
             Paragraph::new(
@@ -155,7 +199,7 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
             )
             .style(Style::default().fg(Color::Cyan).bg(Color::Black))
             .alignment(Alignment::Center),
-            layout[1],
+            chunks[1],
         );
     }
 }

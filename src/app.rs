@@ -1,13 +1,12 @@
 pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
-use crate::dir_entry_item::DirEntryItem;
+use crate::dir_entry_item::{DirEntryItem, DirEntryItemList};
 use crate::event::{DirDeleteProcess, DirEntryProcess};
-use crate::list::StatefulList;
+use crate::list::{AsyncContent, Filterable, StatefulList};
 use std::error;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum GroupSelection {
-    Selected,
-    Deselected,
+    All,
     None,
 }
 
@@ -18,9 +17,10 @@ pub struct App {
     pub running: bool,
     pub list: StatefulList<DirEntryItem>,
     pub loading: bool,
-    pub group_selection: GroupSelection,
     pub deleting: usize,
-    pub has_error: bool,
+    pub search: bool,
+    pub group_selection: Option<GroupSelection>,
+    pub filter_input: Option<String>,
 }
 
 impl App {
@@ -30,9 +30,10 @@ impl App {
             running: true,
             list: StatefulList::new_empty(),
             loading: true,
-            group_selection: GroupSelection::Selected,
             deleting: 0,
-            has_error: false,
+            search: false,
+            filter_input: None,
+            group_selection: None,
         }
     }
 
@@ -48,19 +49,27 @@ impl App {
         self.list.push(item);
     }
 
-    pub fn toggle(&mut self) {
-        self.list.toggle();
-        self.group_selection = GroupSelection::None;
+    pub fn toggle_selected_item(&mut self) {
+        self.list.toggle_selected_item();
+        self.group_selection = None;
+    }
+
+    pub fn start_search_entry(&mut self) {
+        self.search = true;
+    }
+
+    pub fn end_search_entry(&mut self) {
+        self.search = false;
     }
 
     pub fn set_on_and_next(&mut self) {
         self.list.set_on_and_next();
-        self.group_selection = GroupSelection::None;
+        self.group_selection = None;
     }
 
     pub fn set_off_and_next(&mut self) {
         self.list.set_off_and_next();
-        self.group_selection = GroupSelection::None;
+        self.group_selection = None;
     }
 
     pub fn next(&mut self) {
@@ -71,71 +80,76 @@ impl App {
         self.list.previous();
     }
 
-    pub fn toggle_group(&mut self) {
-        self.group_selection = match self.group_selection {
-            GroupSelection::Selected => GroupSelection::Deselected,
-            GroupSelection::Deselected => {
-                if self.list.items.iter().any(|item| item.is_on) {
-                    GroupSelection::None
-                } else {
-                    GroupSelection::Selected
+    pub fn toggle_group_selection(&mut self) {
+        let group_selection = self
+            .group_selection
+            .as_ref()
+            .map(|group_selection| match group_selection {
+                GroupSelection::All => GroupSelection::None,
+                GroupSelection::None => {
+                    if self.list.visible_items().any(|item| item.is_on) {
+                        GroupSelection::None
+                    } else {
+                        GroupSelection::All
+                    }
                 }
-            }
-            GroupSelection::None => GroupSelection::Selected,
-        }
+            })
+            .or(Some(GroupSelection::All));
+
+        self.group_selection = group_selection;
     }
 
-    pub fn on_entry(&mut self, d: DirEntryProcess) {
+    pub fn handle_entry(&mut self, d: DirEntryProcess) {
         match d {
-            DirEntryProcess::Started => self.loading = true,
-            DirEntryProcess::Finished => self.loading = false,
+            DirEntryProcess::Started => self.list.set_loading(),
+            DirEntryProcess::Finished => self.list.set_loaded(),
             DirEntryProcess::Found(e, size) => self.list.push(DirEntryItem::from_entry(e, size)),
         }
     }
-    pub fn on_delete(&mut self, d: DirDeleteProcess) {
+    pub fn handle_delete(&mut self, d: DirDeleteProcess) {
         match d {
-            DirDeleteProcess::Started(d) => self.deleting = d,
-            DirDeleteProcess::Finished(_) => self.deleting = 0,
+            DirDeleteProcess::BatchStarted(d) => self.deleting = d,
+            DirDeleteProcess::BatchFinished(_) => {}
             DirDeleteProcess::Deleting(e) => {
-                if let Some(item) = self
-                    .list
-                    .items
-                    .iter_mut()
-                    .find(|item| item.entry.path() == e.path())
-                {
-                    item.deleting = true;
-                }
+                self.list.set_deleting(e);
             }
             DirDeleteProcess::Deleted(e) => {
-                self.list.items.retain(|item| item.entry.path() != e.path());
+                self.deleting -= 1;
+                self.list.delete(e);
             }
-            DirDeleteProcess::Failed(e, text) => {
-                if let Some(item) = self
-                    .list
-                    .items
-                    .iter_mut()
-                    .find(|item| item.entry.path() == e.path())
-                {
-                    self.has_error = true;
-                    item.error = Some(text);
-                }
+            DirDeleteProcess::Failed(e, error_message) => {
+                self.list.set_failed(e, error_message);
+                self.deleting -= 1;
             }
         }
     }
 
-    pub fn items_to_delete(&self) -> Vec<DirEntryItem> {
-        match self.group_selection {
-            GroupSelection::Selected => self.list.items.iter().cloned().collect(),
-            GroupSelection::Deselected => {
-                vec![]
+    pub fn items_to_delete(&self) -> Vec<&DirEntryItem> {
+        if let Some(group_selection) = self.group_selection.as_ref() {
+            match group_selection {
+                GroupSelection::All => return self.list.visible_items().collect(),
+                GroupSelection::None => return vec![],
             }
-            GroupSelection::None => self
-                .list
-                .items
-                .iter()
-                .filter(|item| item.is_on)
-                .cloned()
-                .collect(),
+        }
+        self.list
+            .visible_items()
+            .filter(|item| item.is_on)
+            .collect()
+    }
+
+    pub fn append_filter_input(&mut self, c: char) {
+        self.filter_input
+            .get_or_insert_with(Default::default)
+            .push(c);
+    }
+    pub fn delete_filter_input(&mut self) {
+        if let Some(filter_input) = &mut self.filter_input {
+            filter_input.pop();
+            if filter_input.is_empty() {
+                // Optional: Reset to None if the string becomes empty
+                self.filter_input = None;
+                self.search = false;
+            }
         }
     }
 }

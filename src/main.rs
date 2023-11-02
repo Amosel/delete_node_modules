@@ -25,47 +25,74 @@ fn main() -> AppResult<()> {
         match tui.events.next()? {
             Event::Tick => app.tick(),
             Event::Key(key_event) => {
-                match key_event.code {
-                    // Exit application on `ESC` or `q`
-                    KeyCode::Esc | KeyCode::Char('q') => {
-                        app.quit();
+                if app.search {
+                    match key_event.code {
+                        KeyCode::Esc => {
+                            app.end_search_entry();
+                        }
+                        KeyCode::Enter | KeyCode::Char('/') => {
+                            app.end_search_entry();
+                        }
+                        KeyCode::Char(c) => {
+                            // Append the character to your filter_input
+                            app.append_filter_input(c);
+                        }
+                        KeyCode::Backspace => {
+                            // Remove the last character from filter_input
+                            app.delete_filter_input();
+                        }
+                        // ... handle other keys ...
+                        _ => {}
                     }
-                    // Exit application on `Ctrl-C`
-                    KeyCode::Char('c') | KeyCode::Char('C') => {
-                        if key_event.modifiers == KeyModifiers::CONTROL {
+                } else {
+                    match key_event.code {
+                        // Exit application on `ESC` or `q`
+                        KeyCode::Esc | KeyCode::Char('q') => {
                             app.quit();
                         }
-                    }
-                    KeyCode::Char(' ') => {
-                        app.toggle();
-                    }
-                    KeyCode::Right => app.set_on_and_next(),
-                    KeyCode::Left => app.set_off_and_next(),
-                    KeyCode::Down => app.next(),
-                    KeyCode::Up => app.previous(),
-                    KeyCode::Tab => {
-                        app.toggle_group();
-                    }
-                    KeyCode::Char('a') => {
-                        app.toggle_group();
-                    }
-                    KeyCode::Enter => {
-                        let items = app.items_to_delete();
-                        if !items.is_empty() {
-                            delete(
-                                app.items_to_delete().iter().map(|item| item.entry.clone()).collect(),
-                                &tui.events.sender,
-                            );
+                        // Exit application on `Ctrl-C`
+                        KeyCode::Char('c') | KeyCode::Char('C') => {
+                            if key_event.modifiers == KeyModifiers::CONTROL {
+                                app.quit();
+                            }
                         }
+                        KeyCode::Char(' ') => {
+                            app.toggle_selected_item();
+                        }
+                        KeyCode::Right => app.set_on_and_next(),
+                        KeyCode::Left => app.set_off_and_next(),
+                        KeyCode::Down => app.next(),
+                        KeyCode::Up => app.previous(),
+                        KeyCode::Tab => {
+                            app.toggle_group_selection();
+                        }
+                        KeyCode::Char('a') | KeyCode::Char('A') => {
+                            app.toggle_group_selection();
+                        }
+                        KeyCode::Char('/') => {
+                            app.start_search_entry();
+                        }
+                        KeyCode::Enter => {
+                            let items = app.items_to_delete();
+                            if !items.is_empty() {
+                                delete(
+                                    app.items_to_delete()
+                                        .iter()
+                                        .map(|item| item.entry.clone())
+                                        .collect(),
+                                    &tui.events.sender,
+                                );
+                            }
+                        }
+                        // Other handlers you could add here.
+                        _ => {}
                     }
-                    // Other handlers you could add here.
-                    _ => {}
                 }
             }
             Event::Mouse(_) => {}
             Event::Resize(_, _) => {}
-            Event::Entry(e) => app.on_entry(e),
-            Event::Delete(e) => app.on_delete(e),
+            Event::Entry(e) => app.handle_entry(e),
+            Event::Delete(e) => app.handle_delete(e),
         }
     }
 
