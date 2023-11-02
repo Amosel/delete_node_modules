@@ -61,7 +61,7 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
         chunks[0],
     );
 
-    if !app.list.visible_items().next().is_none() {
+    if app.list.visible_items().next().is_some() {
         let mut selected_count: usize = 0;
         let mut selection_size: u64 = 0;
         let has_search_input = match app.filter_input.as_deref() {
