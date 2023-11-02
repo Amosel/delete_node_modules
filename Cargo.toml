@@ -8,5 +8,6 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.75"
 crossterm = "0.26.1"
+rayon = "1.8.0"
 tui = { package = "ratatui", version = "0.21.0" }
 walkdir = "2.4.0"

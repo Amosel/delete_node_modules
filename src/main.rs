@@ -78,7 +78,7 @@ fn main() -> AppResult<()> {
                                 delete(
                                     app.items_to_delete()
                                         .iter()
-                                        .map(|item| item.entry.clone())
+                                        .map(|item| item)
                                         .collect(),
                                     &tui.events.sender,
                                 );

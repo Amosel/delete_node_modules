@@ -1,11 +1,13 @@
-use crate::app::AppResult;
+use crate::{app::AppResult, dir_entry_item::DirEntryItem};
 use crossterm::event::{self, Event as CrosstermEvent, KeyEvent, MouseEvent};
+use rayon::prelude::*;
 use std::{
     path::{Path, PathBuf},
     sync::mpsc::{channel, Receiver, Sender},
     thread::{self},
     time::{Duration, Instant},
 };
+
 use walkdir::{DirEntry, WalkDir};
 
 #[derive(Clone, Debug)]
@@ -17,11 +19,9 @@ pub enum DirEntryProcess {
 
 #[derive(Clone, Debug)]
 pub enum DirDeleteProcess {
-    BatchStarted(usize),
-    BatchFinished(usize),
-    Deleting(DirEntry),
-    Deleted(DirEntry),
-    Failed(DirEntry, String),
+    Deleting((PathBuf, u64)),
+    Deleted((PathBuf, u64)),
+    Failed((PathBuf, u64), String),
 }
 
 /// Terminal events.
@@ -52,25 +52,28 @@ pub struct EventHandler {
     handler: thread::JoinHandle<()>,
 }
 
-pub fn delete(items: Vec<DirEntry>, sender: &Sender<Event>) {
-    let sender = sender.clone();
-    let _ = sender.send(Event::Delete(DirDeleteProcess::BatchStarted(items.len())));
-
-    for item in items {
-        let sender = sender.clone();
-        thread::spawn(move || {
-            let _ = sender.send(Event::Delete(DirDeleteProcess::Deleting(item.clone())));
-            let result = std::fs::remove_dir_all(item.path());
-            match result {
-                Ok(_) => {
-                    let _ = sender.send(Event::Delete(DirDeleteProcess::Deleted(item)));
-                }
-                Err(e) => {
-                    let _ = sender.send(Event::Delete(DirDeleteProcess::Failed(item, e.to_string())));
-                }
+pub fn delete(items: Vec<&DirEntryItem>, sender: &Sender<Event>) {
+    items.par_iter().for_each_with(sender.clone(), |s, item| {
+        let _ = s.send(Event::Delete(DirDeleteProcess::Deleting((
+            item.entry.path().into(),
+            item.size,
+        ))));
+        let result: Result<(), std::io::Error> = std::fs::remove_dir_all(item.entry.path());
+        match result {
+            Ok(_) => {
+                let _ = s.send(Event::Delete(DirDeleteProcess::Deleted((
+                    item.entry.path().into(),
+                    item.size,
+                ))));
             }
-        });
-    }
+            Err(e) => {
+                let _ = s.send(Event::Delete(DirDeleteProcess::Failed(
+                    (item.entry.path().into(), item.size),
+                    e.to_string(),
+                )));
+            }
+        }
+    });
 }
 
 fn calculate_dir_size<P: AsRef<Path>>(path: P) -> std::io::Result<u64> {

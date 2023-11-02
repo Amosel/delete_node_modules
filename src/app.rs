@@ -1,13 +1,75 @@
 pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
-use crate::dir_entry_item::{DirEntryItem, DirEntryItemList};
+use crate::dir_entry_item::DirEntryItem;
 use crate::event::{DirDeleteProcess, DirEntryProcess};
 use crate::list::{AsyncContent, Filterable, StatefulList};
 use std::error;
+use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub enum GroupSelection {
     All,
     None,
+}
+
+#[derive(Debug)]
+pub struct Deletes {
+    pub history: Option<Vec<(PathBuf, u64)>>,
+    pub queued: Option<Vec<(PathBuf, u64)>>,
+    pub current: Option<Vec<(PathBuf, u64)>>,
+    pub failed: Option<Vec<(PathBuf, u64, String)>>,
+}
+
+impl Deletes {
+    pub fn add_to_queue(&mut self, item: (PathBuf, u64)) {
+        self.queued.get_or_insert_with(|| Vec::new()).push(item);
+    }
+    // A helper function to reduce repetition
+    fn move_item_to_vec(
+        item: (PathBuf, u64),
+        from: &mut Option<Vec<(PathBuf, u64)>>,
+        to: &mut Option<Vec<(PathBuf, u64)>>,
+    ) {
+        if let Some(vec) = from {
+            vec.retain(|i| *i != item);
+        }
+        to.get_or_insert_with(Vec::new).push(item);
+    }
+
+    pub fn add_to_current(&mut self, item: (PathBuf, u64)) {
+        Self::move_item_to_vec(item, &mut self.queued, &mut self.current);
+    }
+
+    pub fn add_to_history(&mut self, item: (PathBuf, u64)) {
+        Self::move_item_to_vec(item, &mut self.current, &mut self.history);
+    }
+
+    pub fn add_to_failed(&mut self, item: (PathBuf, u64), error_message: String) {
+        if let Some(vec) = self.current.as_mut() {
+            vec.retain(|i| *i == item);
+        }
+        self.failed
+            .get_or_insert_with(|| Vec::new())
+            .push((item.0, item.1, error_message))
+    }
+    pub fn active(&self) -> Option<(usize, u64)> {
+        let queued_size = self
+            .queued
+            .as_ref()
+            .map_or((0, 0), |v| (v.len(), v.iter().map(|(_, size)| size).sum()));
+        let current_size = self
+            .current
+            .as_ref()
+            .map_or((0, 0), |v| (v.len(), v.iter().map(|(_, size)| size).sum()));
+
+        if queued_size.0 + current_size.0 == 0 {
+            None
+        } else {
+            Some((
+                queued_size.0 + current_size.0,
+                queued_size.1 + current_size.1,
+            ))
+        }
+    }
 }
 
 /// Application.
@@ -17,7 +79,7 @@ pub struct App {
     pub running: bool,
     pub list: StatefulList<DirEntryItem>,
     pub scanning: bool,
-    pub deleting: usize,
+    pub deletes: Deletes,
     pub search: bool,
     pub group_selection: Option<GroupSelection>,
     pub filter_input: Option<String>,
@@ -29,8 +91,13 @@ impl App {
         Self {
             running: true,
             list: StatefulList::new_empty(),
-            scanning: true,
-            deleting: 0,
+            scanning: false,
+            deletes: Deletes {
+                queued: None,
+                history: None,
+                current: None,
+                failed: None,
+            },
             search: false,
             filter_input: None,
             group_selection: None,
@@ -108,32 +175,29 @@ impl App {
     }
     pub fn handle_delete(&mut self, d: DirDeleteProcess) {
         match d {
-            DirDeleteProcess::BatchStarted(d) => self.deleting = d,
-            DirDeleteProcess::BatchFinished(_) => {}
-            DirDeleteProcess::Deleting(e) => {
-                self.list.set_deleting(e);
+            DirDeleteProcess::Deleting(item) => {
+                self.deletes.add_to_current(item);
             }
-            DirDeleteProcess::Deleted(e) => {
-                self.deleting -= 1;
-                self.list.delete(e);
+            DirDeleteProcess::Deleted(item) => {
+                self.deletes.add_to_history(item);
             }
-            DirDeleteProcess::Failed(e, error_message) => {
-                self.list.set_failed(e, error_message);
-                self.deleting -= 1;
+            DirDeleteProcess::Failed(item, error_message) => {
+                self.deletes.add_to_failed(item, error_message);
             }
         }
     }
 
-    pub fn items_to_delete(&self) -> Vec<&DirEntryItem> {
+    pub fn items_to_delete(&self) -> Vec<DirEntryItem> {
         if let Some(group_selection) = self.group_selection.as_ref() {
             match group_selection {
-                GroupSelection::All => return self.list.visible_items().collect(),
+                GroupSelection::All => return self.list.visible_items().cloned().collect(),
                 GroupSelection::None => return vec![],
             }
         }
         self.list
             .visible_items()
             .filter(|item| item.is_on)
+            .cloned()
             .collect()
     }
 

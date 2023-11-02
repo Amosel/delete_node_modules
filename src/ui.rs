@@ -106,12 +106,7 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
                     }
                 }
 
-                let title: String = item
-                    .entry
-                    .path()
-                    .to_str()
-                    .unwrap()
-                    .to_string()
+                let title: String = item.entry.path().to_str().unwrap().to_string()
                     + " - "
                     + &format_size(item.size);
 
@@ -128,7 +123,15 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
             .collect();
 
         // Create a List from all list items and highlight the currently selected one
-        let is_scanning_text = if app.scanning { ", Scanning..." } else { "" };
+        let middle_text = if app.scanning {
+            ", Scanning...".to_string()
+        } else {
+            if let Some(active) = app.deletes.active() {
+                format!("Deleting {} ({})", active.0, format_size(active.1))
+            } else {
+                "".to_string()
+            }
+        };
         let selected_number_text = if selected_count > 0 {
             format!("{}", selected_count)
         } else {
@@ -147,7 +150,7 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
             "Directories {}/{} {} Volume:{} --{}",
             selected_number_text,
             items.len(),
-            is_scanning_text,
+            middle_text,
             selection_size_text,
             search_text
         );
