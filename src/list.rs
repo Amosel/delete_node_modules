@@ -149,12 +149,12 @@ impl<T: Toggle> StatefulList<T> {
     }
 
     pub fn set_on_and_next(&mut self) {
-        self.selected_mut().map(|item| item.set_is_on(true));
+        if let Some(item) = self.selected_mut() { item.set_is_on(true) }
         self.next()
     }
 
     pub fn set_off_and_next(&mut self) {
-        self.selected_mut().map(|item| item.set_is_on(false));
+        if let Some(item) = self.selected_mut() { item.set_is_on(false)}
         self.next()
     }
 
