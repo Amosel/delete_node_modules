@@ -64,7 +64,7 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
         let mut selection_size: u64 = 0;
         let has_search_input = match app.filter_input.as_deref() {
             None => false,
-            Some(s) => s.len() > 0,
+            Some(s) => s.is_empty(),
         };
 
         let items: Vec<ListItem> = app
