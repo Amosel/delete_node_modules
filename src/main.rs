@@ -75,13 +75,7 @@ fn main() -> AppResult<()> {
                         KeyCode::Enter => {
                             let items = app.items_to_delete();
                             if !items.is_empty() {
-                                delete(
-                                    app.items_to_delete()
-                                        .iter()
-                                        .map(|item| item)
-                                        .collect(),
-                                    &tui.events.sender,
-                                );
+                                delete(app.items_to_delete(), &tui.events.sender);
                             }
                         }
                         // Other handlers you could add here.

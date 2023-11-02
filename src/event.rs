@@ -52,7 +52,7 @@ pub struct EventHandler {
     handler: thread::JoinHandle<()>,
 }
 
-pub fn delete(items: Vec<&DirEntryItem>, sender: &Sender<Event>) {
+pub fn delete(items: Vec<DirEntryItem>, sender: &Sender<Event>) {
     items.par_iter().for_each_with(sender.clone(), |s, item| {
         let _ = s.send(Event::Delete(DirDeleteProcess::Deleting((
             item.entry.path().into(),
