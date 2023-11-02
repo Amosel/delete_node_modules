@@ -87,23 +87,19 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
                     is_on = true;
                     selected_count += 1;
                     selection_size += item.size;
-                } else {
-                    if let Some(group_selection) = &app.group_selection {
-                        match group_selection {
-                            GroupSelection::All => {}
-                            GroupSelection::None => {
-                                is_on = true;
-                                selected_count += 1;
-                                selection_size += item.size;
-                            }
-                        }
-                    } else {
-                        if item.is_on {
+                } else if let Some(group_selection) = &app.group_selection {
+                    match group_selection {
+                        GroupSelection::All => {}
+                        GroupSelection::None => {
                             is_on = true;
                             selected_count += 1;
                             selection_size += item.size;
                         }
                     }
+                } else if item.is_on {
+                    is_on = true;
+                    selected_count += 1;
+                    selection_size += item.size;
                 }
 
                 let title: String = item.entry.path().to_str().unwrap().to_string()
@@ -125,12 +121,10 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
         // Create a List from all list items and highlight the currently selected one
         let middle_text = if app.scanning {
             ", Scanning...".to_string()
+        } else if let Some(active) = app.deletes.active() {
+            format!("Deleting {} ({})", active.0, format_size(active.1))
         } else {
-            if let Some(active) = app.deletes.active() {
-                format!("Deleting {} ({})", active.0, format_size(active.1))
-            } else {
-                "".to_string()
-            }
+            "".to_string()
         };
         let selected_number_text = if selected_count > 0 {
             format!("{}", selected_count)
