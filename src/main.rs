@@ -8,7 +8,7 @@ use tui::Terminal;
 
 fn main() -> AppResult<()> {
     // Create an application.
-    let mut app = App::new();
+    let mut app = App::default();
 
     // Initialize the terminal user interface.
     let backend = CrosstermBackend::new(io::stderr());

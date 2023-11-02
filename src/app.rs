@@ -85,9 +85,8 @@ pub struct App {
     pub filter_input: Option<String>,
 }
 
-impl App {
-    /// Constructs a new instance of [`App`].
-    pub fn new() -> Self {
+impl Default for App {
+    fn default() -> Self {
         Self {
             running: true,
             list: StatefulList::new_empty(),
@@ -103,7 +102,8 @@ impl App {
             group_selection: None,
         }
     }
-
+}
+impl App {
     /// Handles the tick event of the terminal.
     pub fn tick(&self) {}
 
