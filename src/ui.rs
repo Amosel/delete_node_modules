@@ -128,7 +128,7 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
             .collect();
 
         // Create a List from all list items and highlight the currently selected one
-        let is_loading_text = if app.loading { ", Loading..." } else { "" };
+        let is_scanning_text = if app.scanning { ", Scanning..." } else { "" };
         let selected_number_text = if selected_count > 0 {
             format!("{}", selected_count)
         } else {
@@ -147,7 +147,7 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
             "Directories {}/{} {} Volume:{} --{}",
             selected_number_text,
             items.len(),
-            is_loading_text,
+            is_scanning_text,
             selection_size_text,
             search_text
         );
@@ -181,7 +181,7 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
                 frame.render_widget(filter_block, chunks[2]);
             }
         }
-    } else if !app.loading {
+    } else if !app.scanning {
         frame.render_widget(
             Paragraph::new(
                 "\

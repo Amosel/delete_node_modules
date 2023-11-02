@@ -16,9 +16,9 @@ pub trait Filterable<'a, T> {
 }
 
 pub trait AsyncContent<T> {
-    fn loading(&self) -> bool;
-    fn set_loading(&mut self);
-    fn set_loaded(&mut self);
+    fn scanning(&self) -> bool;
+    fn set_scanning(&mut self);
+    fn set_done_scanning(&mut self);
     fn push(&mut self, item: T);
 }
 
@@ -26,19 +26,19 @@ pub trait AsyncContent<T> {
 pub struct StatefulList<T: Toggle> {
     items: Vec<T>,
     pub state: ListState,
-    loading: bool,
+    scanning: bool,
     filtered: Option<Vec<usize>>,
 }
 
 impl<'a, T: Toggle> AsyncContent<T> for StatefulList<T> {
-    fn loading(&self) -> bool {
-        self.loading
+    fn scanning(&self) -> bool {
+        self.scanning
     }
-    fn set_loaded(&mut self) {
-        self.loading = false;
+    fn set_done_scanning(&mut self) {
+        self.scanning = false;
     }
-    fn set_loading(&mut self) {
-        self.loading = true;
+    fn set_scanning(&mut self) {
+        self.scanning = true;
     }
     fn push(&mut self, item: T) {
         self.items.push(item);
@@ -111,7 +111,7 @@ impl<'a, T: Toggle> StatefulList<T> {
             state: ListState::default(),
             items: vec![],
             filtered: None,
-            loading: false,
+            scanning: false,
         }
     }
     pub fn new(items: Vec<T>) -> Self {
@@ -119,7 +119,7 @@ impl<'a, T: Toggle> StatefulList<T> {
             state: ListState::default(),
             items,
             filtered: None,
-            loading: false,
+            scanning: false,
         }
     }
 

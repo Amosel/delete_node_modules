@@ -16,7 +16,7 @@ pub struct App {
     /// Is the application running?
     pub running: bool,
     pub list: StatefulList<DirEntryItem>,
-    pub loading: bool,
+    pub scanning: bool,
     pub deleting: usize,
     pub search: bool,
     pub group_selection: Option<GroupSelection>,
@@ -29,7 +29,7 @@ impl App {
         Self {
             running: true,
             list: StatefulList::new_empty(),
-            loading: true,
+            scanning: true,
             deleting: 0,
             search: false,
             filter_input: None,
@@ -101,8 +101,8 @@ impl App {
 
     pub fn handle_entry(&mut self, d: DirEntryProcess) {
         match d {
-            DirEntryProcess::Started => self.list.set_loading(),
-            DirEntryProcess::Finished => self.list.set_loaded(),
+            DirEntryProcess::Started => self.list.set_scanning(),
+            DirEntryProcess::Finished => self.list.set_done_scanning(),
             DirEntryProcess::Found(e, size) => self.list.push(DirEntryItem::from_entry(e, size)),
         }
     }
