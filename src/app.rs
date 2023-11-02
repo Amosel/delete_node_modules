@@ -21,7 +21,7 @@ pub struct Deletes {
 
 impl Deletes {
     pub fn add_to_queue(&mut self, item: (PathBuf, u64)) {
-        self.queued.get_or_insert_with(|| Vec::new()).push(item);
+        self.queued.get_or_insert_with(Vec::new).push(item);
     }
     // A helper function to reduce repetition
     fn move_item_to_vec(
@@ -48,7 +48,7 @@ impl Deletes {
             vec.retain(|i| *i == item);
         }
         self.failed
-            .get_or_insert_with(|| Vec::new())
+            .get_or_insert_with(Vec::new)
             .push((item.0, item.1, error_message))
     }
     pub fn active(&self) -> Option<(usize, u64)> {
