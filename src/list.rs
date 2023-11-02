@@ -30,7 +30,7 @@ pub struct StatefulList<T: Toggle> {
     filtered: Option<Vec<usize>>,
 }
 
-impl<'a, T: Toggle> AsyncContent<T> for StatefulList<T> {
+impl<T: Toggle> AsyncContent<T> for StatefulList<T> {
     fn scanning(&self) -> bool {
         self.scanning
     }
@@ -45,7 +45,7 @@ impl<'a, T: Toggle> AsyncContent<T> for StatefulList<T> {
     }
 }
 
-impl<'a, T: Toggle> SingleSelection for StatefulList<T> {
+impl<T: Toggle> SingleSelection for StatefulList<T> {
     type Item = T;
     fn selected(&self) -> Option<&Self::Item> {
         // Here we handle the Option type, as self.state.selected is an Option<usize>
@@ -105,7 +105,7 @@ impl<'a, T: Toggle> Filterable<'a, T> for StatefulList<T> {
     }
 }
 
-impl<'a, T: Toggle> StatefulList<T> {
+impl<T: Toggle> StatefulList<T> {
     pub fn new_empty() -> Self {
         Self {
             state: ListState::default(),
