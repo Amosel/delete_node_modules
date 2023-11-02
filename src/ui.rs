@@ -41,14 +41,12 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
     // - https://docs.rs/ratatui/latest/ratatui/widgets/index.html
     // - https://github.com/ratatui-org/ratatui/tree/master/examples
     frame.render_widget(
-        Paragraph::new(format!(
-            "\
-                Press `Esc`, `Ctrl-C` or `q` to stop running.\n\
-                Press `up` and `down` to navigate and `space` to toggle selection\n\
-                Press `a` or `Tab` to toggle selection between all, none or per item\n\
-                Press `Enter` to delete currently selected items\n\
-                ",
-        ))
+        Paragraph::new("\
+            Press `Esc`, `Ctrl-C` or `q` to stop running.\n\
+            Press `up` and `down` to navigate and `space` to toggle selection\n\
+            Press `a` or `Tab` to toggle selection between all, none or per item\n\
+            Press `Enter` to delete currently selected items\n\
+        ".to_string())
         .block(
             Block::default()
                 .title("node_modules Cleaner")
