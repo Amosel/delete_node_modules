@@ -149,12 +149,16 @@ impl<T: Toggle> StatefulList<T> {
     }
 
     pub fn set_on_and_next(&mut self) {
-        if let Some(item) = self.selected_mut() { item.set_is_on(true) }
+        if let Some(item) = self.selected_mut() {
+            item.set_is_on(true)
+        }
         self.next()
     }
 
     pub fn set_off_and_next(&mut self) {
-        if let Some(item) = self.selected_mut() { item.set_is_on(false)}
+        if let Some(item) = self.selected_mut() {
+            item.set_is_on(false)
+        }
         self.next()
     }
 
@@ -167,7 +171,7 @@ impl<T: Toggle> StatefulList<T> {
                     filtered
                         .iter()
                         .position(|&value| value == selected)
-                        .and_then(|idx| Some((idx + 1) % filtered.len()))
+                        .map(|idx| (idx + 1) % filtered.len())
                         .and_then(|filtered_idx| filtered.get(filtered_idx))
                         .copied()
                 })
@@ -176,8 +180,14 @@ impl<T: Toggle> StatefulList<T> {
             // Handle the case when no filter is applied
             self.state
                 .selected()
-                .and_then(|selected| Some((selected + 1) % self.items.len()))
-                .or_else(|| if self.items.is_empty() { None } else { Some(0) })
+                .map(|selected| (selected + 1) % self.items.len())
+                .or({
+                    if self.items.is_empty() {
+                        None
+                    } else {
+                        Some(0)
+                    }
+                })
         };
 
         self.state.select(next_index);
@@ -192,7 +202,7 @@ impl<T: Toggle> StatefulList<T> {
                     filtered
                         .iter()
                         .position(|&value| value == selected)
-                        .and_then(|idx| Some((idx + filtered.len() - 1) % filtered.len()))
+                        .map(|idx| (idx + filtered.len() - 1) % filtered.len())
                         .and_then(|filtered_idx| filtered.get(filtered_idx))
                         .copied()
                 })
@@ -201,8 +211,8 @@ impl<T: Toggle> StatefulList<T> {
             // Handle the case when no filter is applied
             self.state
                 .selected()
-                .and_then(|selected| Some((selected + self.items.len() - 1) % self.items.len()))
-                .or_else(|| {
+                .map(|selected| (selected + self.items.len() - 1) % self.items.len())
+                .or({
                     if self.items.is_empty() {
                         None
                     } else {
