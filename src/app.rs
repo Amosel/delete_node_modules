@@ -196,7 +196,7 @@ impl App {
         }
         self.list
             .visible_items()
-            .filter(|item| item.is_on)
+            .filter(|item| item.is_on && !item.deleting)
             .cloned()
             .collect()
     }
