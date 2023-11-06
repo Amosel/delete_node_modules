@@ -139,7 +139,7 @@ pub fn render<B: Backend>(app: &mut App, frame: &mut Frame<'_, B>) {
             "".to_string()
         };
         let title = format!(
-            "Directories {}/{} {} Volume:{} --{}",
+            "Directories {}/{} {} Volume :{} --{}",
             selected_number_text,
             items.len(),
             middle_text,

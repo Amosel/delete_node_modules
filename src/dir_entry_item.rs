@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use walkdir::DirEntry;
 
 pub trait Toggle {
@@ -53,7 +54,7 @@ impl Toggle for DirEntryItem {
 }
 
 pub trait DirEntryItemList {
-    fn set_deleting(&mut self, e: DirEntry);
-    fn set_failed(&mut self, e: DirEntry, error_message: String);
-    fn delete(&mut self, e: DirEntry);
+    fn set_deleting(&mut self, path: PathBuf);
+    fn set_failed(&mut self, path: PathBuf, error_message: String);
+    fn delete(&mut self, path: PathBuf);
 }

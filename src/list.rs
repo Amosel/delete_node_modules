@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::dir_entry_item::{DirEntryItem, DirEntryItemList, Toggle};
 use tui::widgets::*;
 
@@ -235,12 +237,8 @@ impl<T: Toggle> StatefulList<T> {
 }
 
 impl DirEntryItemList for StatefulList<DirEntryItem> {
-    fn delete(&mut self, e: walkdir::DirEntry) {
-        if let Some(index) = self
-            .items
-            .iter()
-            .position(|item| item.entry.path() != e.path())
-        {
+    fn delete(&mut self, path: PathBuf) {
+        if let Some(index) = self.items.iter().position(|item| item.entry.path() != path) {
             self.items.remove(index);
             if let Some(filtered) = self.filtered.as_mut() {
                 filtered.retain(|&i| i != index);
@@ -248,21 +246,13 @@ impl DirEntryItemList for StatefulList<DirEntryItem> {
         }
     }
 
-    fn set_deleting(&mut self, e: walkdir::DirEntry) {
-        if let Some(item) = self
-            .items
-            .iter_mut()
-            .find(|item| item.entry.path() == e.path())
-        {
+    fn set_deleting(&mut self, path: PathBuf) {
+        if let Some(item) = self.items.iter_mut().find(|item| item.entry.path() == path) {
             item.deleting = true;
         }
     }
-    fn set_failed(&mut self, e: walkdir::DirEntry, error_message: String) {
-        if let Some(item) = self
-            .items
-            .iter_mut()
-            .find(|item| item.entry.path() == e.path())
-        {
+    fn set_failed(&mut self, path: PathBuf, error_message: String) {
+        if let Some(item) = self.items.iter_mut().find(|item| item.entry.path() == path) {
             item.error_message = Some(error_message);
         }
     }

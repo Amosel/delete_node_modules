@@ -13,3 +13,7 @@ pub mod tui;
 pub mod list;
 
 pub mod dir_entry_item;
+
+pub mod effects;
+
+pub mod event_handling;

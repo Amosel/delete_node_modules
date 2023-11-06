@@ -1,5 +1,5 @@
 pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
-use crate::dir_entry_item::DirEntryItem;
+use crate::dir_entry_item::{DirEntryItem, DirEntryItemList};
 use crate::event::{DirDeleteProcess, DirEntryProcess};
 use crate::list::{AsyncContent, Filterable, StatefulList};
 use std::error;
@@ -176,13 +176,20 @@ impl App {
     pub fn handle_delete(&mut self, d: DirDeleteProcess) {
         match d {
             DirDeleteProcess::Deleting(item) => {
+                let path_clone = item.0.clone();
                 self.deletes.add_to_current(item);
+                self.list.set_deleting(path_clone);
             }
             DirDeleteProcess::Deleted(item) => {
+                let path_clone = item.0.clone();
                 self.deletes.add_to_history(item);
+                self.list.delete(path_clone);
             }
             DirDeleteProcess::Failed(item, error_message) => {
+                let path_clone = item.0.clone();
+                let error_message_clone = error_message.clone();
                 self.deletes.add_to_failed(item, error_message);
+                self.list.set_failed(path_clone, error_message_clone);
             }
         }
     }

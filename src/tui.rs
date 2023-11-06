@@ -1,10 +1,11 @@
 use crate::app::{App, AppResult};
-use crate::event::EventHandler;
 use crate::ui;
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use crossterm::terminal::{self, EnterAlternateScreen, LeaveAlternateScreen};
 use std::io;
 use std::panic;
+use std::sync::mpsc::{Receiver, Sender};
+use std::thread;
 use tui::backend::Backend;
 use tui::Terminal;
 
@@ -12,18 +13,28 @@ use tui::Terminal;
 ///
 /// It is responsible for setting up the terminal,
 /// initializing the interface and handling the draw events.
+#[allow(dead_code)]
 #[derive(Debug)]
-pub struct Tui<B: Backend> {
+pub struct Tui<B: Backend, E> {
     /// Interface to the Terminal.
     terminal: Terminal<B>,
     /// Terminal event handler.
-    pub events: EventHandler,
+    pub sender: Sender<E>,
+    /// Event receiver channel.
+    pub receiver: Receiver<E>,
+    /// Event handler thread.
+    handlers: Vec<thread::JoinHandle<()>>,
 }
 
-impl<B: Backend> Tui<B> {
+impl<B: Backend, E> Tui<B, E> {
     /// Constructs a new instance of [`Tui`].
-    pub fn new(terminal: Terminal<B>, events: EventHandler) -> Self {
-        Self { terminal, events }
+    pub fn new(
+        terminal: Terminal<B>,
+        sender: Sender<E>,
+        receiver: Receiver<E>,
+        handlers: Vec<thread::JoinHandle<()>>,
+    ) -> Self {
+        Self { terminal, sender, receiver, handlers }
     }
 
     /// Initializes the terminal interface.
@@ -72,5 +83,9 @@ impl<B: Backend> Tui<B> {
         Self::reset()?;
         self.terminal.show_cursor()?;
         Ok(())
+    }
+
+    pub fn next(&self) -> AppResult<E> {
+        Ok(self.receiver.recv()?)
     }
 }
