@@ -3,6 +3,7 @@ use crossterm::event::{self, Event as CrosstermEvent, KeyEvent, MouseEvent};
 use rayon::prelude::*;
 use std::{
     path::{Path, PathBuf},
+    process::Command,
     sync::mpsc::{channel, Receiver, Sender},
     thread::{self},
     time::{Duration, Instant},
@@ -76,20 +77,25 @@ pub fn delete(items: Vec<DirEntryItem>, sender: &Sender<Event>) {
     });
 }
 
-fn calculate_dir_size<P: AsRef<Path>>(path: P) -> std::io::Result<u64> {
-    let mut size = 0;
+fn get_directory_size(path: &str) -> Result<u64, Box<dyn std::error::Error>> {
+    let output = Command::new("du")
+        .arg("-sb") // Use '-sb' for size in bytes and summarize for the directory only
+        .arg(path)
+        .output()?;
 
-    for entry in WalkDir::new(path)
-        .min_depth(1) // skip the root node_modules directory itself
-        .into_iter()
-        .filter_map(|e| e.ok())
-    {
-        let metadata = entry.metadata()?;
-        if metadata.is_file() {
-            size += metadata.len();
-        }
+    if !output.status.success() {
+        return Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "du command failed",
+        )));
     }
 
+    let output_str = std::str::from_utf8(&output.stdout)?;
+    let size_str = output_str
+        .split_whitespace()
+        .next()
+        .ok_or("No output from du")?;
+    let size = size_str.parse::<u64>()?;
     Ok(size)
 }
 
@@ -126,29 +132,34 @@ fn walk(sender: Sender<Event>) -> thread::JoinHandle<()> {
             .expect("Unable to send data through the channel.");
         let path = Path::new("."); // Start from the current directory.
         let mut current: Option<PathBuf> = None;
-        for entry in WalkDir::new(path)
+        for (entry, size) in WalkDir::new(path)
             .follow_links(false) // Follow symbolic links.
             .into_iter()
             .filter_map(Result::ok)
+            .filter(|entry| {
+                if entry.file_type().is_dir()
+                    && entry.file_name().to_string_lossy() == "node_modules"
+                {
+                    if let Some(ref previous) = current {
+                        if !entry.path().starts_with(previous) {
+                            current = Some(entry.path().into());
+                            return true;
+                        }
+                    } else {
+                        current = Some(entry.path().into());
+                    }
+                }
+                return false;
+            })
+            .map(|entry| {
+                let size: u64 = get_directory_size(entry.path().to_str().unwrap()).unwrap();
+                (entry, size)
+            })
         // Filter out potential errors during iteration.
         {
-            if entry.file_type().is_dir() && entry.file_name().to_string_lossy() == "node_modules" {
-                if let Some(ref previous) = current {
-                    if !entry.path().starts_with(previous) {
-                        current = Some(entry.path().into());
-                        let size: u64 = calculate_dir_size(entry.path()).unwrap();
-                        sender
-                            .send(Event::Entry(DirEntryProcess::Found(entry, size)))
-                            .expect("Unable to send data through the channel.");
-                    }
-                } else {
-                    current = Some(entry.path().into());
-                    let size: u64 = calculate_dir_size(entry.path()).unwrap();
-                    sender
-                        .send(Event::Entry(DirEntryProcess::Found(entry, size)))
-                        .expect("Unable to send data through the channel.");
-                }
-            }
+            sender
+                .send(Event::Entry(DirEntryProcess::Found(entry, size)))
+                .expect("Unable to send data through the channel.");
             // Send each valid directory entry through the channel.
         }
         sender
