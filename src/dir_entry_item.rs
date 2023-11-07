@@ -1,24 +1,13 @@
-use std::path::PathBuf;
 use walkdir::DirEntry;
-
-pub trait Toggle {
-    // Toggle the selection state.
-    fn toggle(&mut self);
-
-    // Set the selection state explicitly.
-    fn set_is_on(&mut self, is_on: bool);
-
-    // Check whether the item is on.
-    fn is_on(&self) -> bool;
-}
+use crate::actions::ActionState;
+use crate::list::{Toggle, Deletable};
 
 #[derive(Debug, Clone)]
 pub struct DirEntryItem {
     pub entry: DirEntry,
-    pub is_on: bool,
     pub size: u64,
-    pub deleting: bool,
-    pub error_message: Option<String>,
+    pub delete_state: Option<ActionState>,
+    is_on: bool,
 }
 
 impl DirEntryItem {
@@ -27,25 +16,32 @@ impl DirEntryItem {
             entry,
             size,
             is_on: false,
-            deleting: false,
-            error_message: None,
+            delete_state: None,
         }
+    }
+    pub fn can_toggle(&self) -> bool {
+        self.delete_state.is_none()
+    }
+
+    pub fn is_deleting(&self) -> bool {
+        matches!(self.delete_state, Some(ActionState::Pending))
+    }
+    pub fn is_on(&self) -> bool {
+        self.is_on
     }
 }
 
 impl Toggle for DirEntryItem {
     fn toggle(&mut self) {
-        if self.deleting || self.error_message.is_some() {
-            return;
+        if self.can_toggle() {
+            self.is_on = !self.is_on;
         }
-        self.is_on = !self.is_on;
     }
 
     fn set_is_on(&mut self, is_on: bool) {
-        if self.deleting || self.error_message.is_some() {
-            return;
+        if self.can_toggle() {
+            self.is_on = is_on;
         }
-        self.is_on = is_on;
     }
 
     fn is_on(&self) -> bool {
@@ -53,8 +49,8 @@ impl Toggle for DirEntryItem {
     }
 }
 
-pub trait DirEntryItemList {
-    fn set_deleting(&mut self, path: PathBuf);
-    fn set_failed(&mut self, path: PathBuf, error_message: String);
-    fn delete(&mut self, path: PathBuf);
+impl Deletable for DirEntryItem {
+    fn can_delete(&self) -> bool {
+        self.is_on() && self.delete_state.is_none()
+    }
 }

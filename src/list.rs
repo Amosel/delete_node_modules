@@ -1,50 +1,47 @@
-use std::path::PathBuf;
-
-use crate::dir_entry_item::{DirEntryItem, DirEntryItemList, Toggle};
+use crate::{actions::ActionState, app::GroupSelection};
 use tui::widgets::*;
+
+pub trait Toggle {
+    // Toggle the selection state.
+    fn toggle(&mut self);
+
+    // Set the selection state explicitly.
+    fn set_is_on(&mut self, is_on: bool);
+
+    // Check whether the item is on.
+    fn is_on(&self) -> bool;
+}
 
 pub trait SingleSelection {
     type Item; // Associated type to avoid forcing the same type for T in SingleSelection and StatefulList
     fn selected(&self) -> Option<&Self::Item>;
 }
 
+pub trait GroupSelectable {
+    fn toggle_group_selection(&mut self);
+}
+
+pub trait Deletable {
+    fn can_delete(&self) -> bool;
+}
+
 pub trait Filterable<'a, T> {
     fn apply_filter<F>(&mut self, filter: F)
     where
         F: Fn(&T) -> bool;
+
     fn clear_filter(&mut self);
 
     fn visible_items<'b>(&'b self) -> Box<dyn Iterator<Item = &'b T> + 'b>;
-}
-
-pub trait AsyncContent<T> {
-    fn scanning(&self) -> bool;
-    fn set_scanning(&mut self);
-    fn set_done_scanning(&mut self);
-    fn push(&mut self, item: T);
 }
 
 #[derive(Debug, Clone)]
 pub struct StatefulList<T: Toggle> {
     items: Vec<T>,
     pub state: ListState,
-    scanning: bool,
-    filtered: Option<Vec<usize>>,
-}
-
-impl<T: Toggle> AsyncContent<T> for StatefulList<T> {
-    fn scanning(&self) -> bool {
-        self.scanning
-    }
-    fn set_done_scanning(&mut self) {
-        self.scanning = false;
-    }
-    fn set_scanning(&mut self) {
-        self.scanning = true;
-    }
-    fn push(&mut self, item: T) {
-        self.items.push(item);
-    }
+    scanning: Option<ActionState>,
+    filtered_indices: Option<Vec<usize>>,
+    pub group_selection: Option<GroupSelection>,
 }
 
 impl<T: Toggle> SingleSelection for StatefulList<T> {
@@ -52,7 +49,7 @@ impl<T: Toggle> SingleSelection for StatefulList<T> {
     fn selected(&self) -> Option<&Self::Item> {
         // Here we handle the Option type, as self.state.selected is an Option<usize>
         // and return a reference to the item to avoid moving it out of the vector.
-        if let Some(filtered) = &self.filtered {
+        if let Some(filtered) = &self.filtered_indices {
             self.state.selected().and_then(|index| {
                 filtered
                     .get(index)
@@ -72,7 +69,7 @@ impl<'a, T: Toggle> Filterable<'a, T> for StatefulList<T> {
     where
         F: Fn(&T) -> bool,
     {
-        self.filtered = Some(
+        self.filtered_indices = Some(
             self.items
                 .iter()
                 .enumerate()
@@ -91,81 +88,56 @@ impl<'a, T: Toggle> Filterable<'a, T> for StatefulList<T> {
     }
 
     fn clear_filter(&mut self) {
-        self.filtered = None;
+        self.filtered_indices = None;
     }
 
     fn visible_items<'b>(&'b self) -> Box<dyn Iterator<Item = &'b T> + 'b> {
-        if let Some(filtered) = &self.filtered {
-            Box::new(
-                filtered
-                    .iter()
-                    .filter_map(move |&index| self.items.get(index)),
-            )
-        } else {
-            Box::new(self.items.iter())
+        self.filtered_indices
+            .as_ref()
+            .map_or(Box::new(self.items.iter()), |filtered_indices| {
+                Box::new(
+                    filtered_indices
+                        .iter()
+                        .filter_map(move |&idx| self.items.get(idx)),
+                )
+            })
+    }
+}
+
+impl<T: Toggle> Default for StatefulList<T> {
+    fn default() -> Self {
+        Self {
+            state: ListState::default(),
+            items: vec![],
+            filtered_indices: None,
+            scanning: None,
+            group_selection: None,
         }
     }
 }
 
 impl<T: Toggle> StatefulList<T> {
-    pub fn new_empty() -> Self {
-        Self {
-            state: ListState::default(),
-            items: vec![],
-            filtered: None,
-            scanning: false,
-        }
+
+    pub fn has_visible_items(&self) -> bool {
+        self.visible_items().next().is_some()
     }
-    pub fn new(items: Vec<T>) -> Self {
-        Self {
-            state: ListState::default(),
-            items,
-            filtered: None,
-            scanning: false,
-        }
+    pub fn is_scanning(&self) -> bool {
+        matches!(self.scanning, Some(ActionState::Pending))
+    }
+    pub fn done_scanning(&self) -> bool {
+        matches!(self.scanning, Some(ActionState::Done))
     }
 
-    pub fn selected_index(&self) -> Option<usize> {
-        self.state.selected().and_then(|index| {
-            if let Some(filterd_indices) = &self.filtered {
-                if filterd_indices.contains(&index) {
-                    Some(index)
-                } else {
-                    None
-                }
-            } else {
-                Some(index)
-            }
-        })
-    }
-    pub fn selected(&self) -> Option<&T> {
-        self.selected_index().map(|index| &self.items[index])
+    pub fn set_scanning(&mut self, state: Option<ActionState>) {
+        self.scanning = state;
     }
 
-    fn selected_mut(&mut self) -> Option<&mut T> {
-        if let Some(index) = self.selected_index() {
-            self.items.get_mut(index)
-        } else {
-            None
-        }
-    }
-
-    pub fn set_on_and_next(&mut self) {
-        if let Some(item) = self.selected_mut() {
-            item.set_is_on(true)
-        }
-        self.next()
-    }
-
-    pub fn set_off_and_next(&mut self) {
-        if let Some(item) = self.selected_mut() {
-            item.set_is_on(false)
-        }
-        self.next()
+    pub fn push(&mut self, item: T) {
+        self.items.push(item);
     }
 
     pub fn next(&mut self) {
-        let next_index = if let Some(filtered) = &self.filtered {
+        let next_index = if let Some(filtered) = &self.filtered_indices {
             // Handle the case when a filter is applied
             self.state
                 .selected()
@@ -196,7 +168,7 @@ impl<T: Toggle> StatefulList<T> {
     }
 
     pub fn previous(&mut self) {
-        let next_index = if let Some(filtered) = &self.filtered {
+        let next_index = if let Some(filtered) = &self.filtered_indices {
             // Handle the case when a filter is applied
             self.state
                 .selected()
@@ -229,31 +201,43 @@ impl<T: Toggle> StatefulList<T> {
         self.state.select(None);
     }
 
-    pub fn toggle_selected_item(&mut self) {
-        if let Some(item) = self.state.selected().map(|index| &mut self.items[index]) {
-            item.toggle();
+    pub fn mutate_selected<F>(&mut self, mutator: F) -> bool
+    where
+        F: FnOnce(&mut T) -> bool,
+    {
+        if let Some(item) = self
+            .state
+            .selected()
+            .and_then(|idx| self.items.get_mut(idx))
+        {
+            mutator(item)
+        } else {
+            false
+        }
+    }
+
+    pub fn mutate_where<F, P>(&mut self, predicate: P, mutator: F) -> bool
+    where
+        F: FnOnce(&mut T),
+        P: Fn(&T) -> bool,
+    {
+        if let Some(item) = self.items.iter_mut().find(|item| predicate(item)) {
+            mutator(item);
+            true
+        } else {
+            false
         }
     }
 }
 
-impl DirEntryItemList for StatefulList<DirEntryItem> {
-    fn delete(&mut self, path: PathBuf) {
-        if let Some(index) = self.items.iter().position(|item| item.entry.path() != path) {
-            self.items.remove(index);
-            if let Some(filtered) = self.filtered.as_mut() {
-                filtered.retain(|&i| i != index);
+impl<T: Toggle + Deletable> StatefulList<T> {
+    pub fn items_to_delete<'b>(&'b self) -> Box<dyn Iterator<Item = &'b T> + 'b> {
+        if let Some(group_selection) = self.group_selection.as_ref() {
+            match group_selection {
+                GroupSelection::All => return self.visible_items(),
+                GroupSelection::None => return Box::new(std::iter::empty()),
             }
         }
-    }
-
-    fn set_deleting(&mut self, path: PathBuf) {
-        if let Some(item) = self.items.iter_mut().find(|item| item.entry.path() == path) {
-            item.deleting = true;
-        }
-    }
-    fn set_failed(&mut self, path: PathBuf, error_message: String) {
-        if let Some(item) = self.items.iter_mut().find(|item| item.entry.path() == path) {
-            item.error_message = Some(error_message);
-        }
+        Box::new(self.visible_items().filter(|item| item.can_delete()))
     }
 }

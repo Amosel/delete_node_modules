@@ -3,17 +3,18 @@ use std::path::PathBuf;
 use walkdir::DirEntry;
 
 #[derive(Clone, Debug)]
-pub enum DirEntryProcess {
+pub enum DirSearch {
     Started,
-    Finished,
+    Finished(u64,u64),
     Found(DirEntry, u64),
+    Progress(u64)
 }
 
 #[derive(Clone, Debug)]
-pub enum DirDeleteProcess {
-    Deleting((PathBuf, u64)),
-    Deleted((PathBuf, u64)),
-    Failed((PathBuf, u64), String),
+pub enum DirDelete {
+    Deleting(PathBuf),
+    Deleted(PathBuf),
+    Failed(PathBuf, String),
 }
 
 /// Terminal events.
@@ -28,6 +29,6 @@ pub enum Event {
     /// Terminal resize.
     Resize(u16, u16),
 
-    Delete(DirDeleteProcess),
-    Entry(DirEntryProcess),
+    Delete(DirDelete),
+    Search(DirSearch),
 }

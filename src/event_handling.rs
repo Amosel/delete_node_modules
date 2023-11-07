@@ -1,4 +1,5 @@
 use crate::app::App;
+use crate::dir_entry_item::DirEntryItem;
 use crate::effects::delete_items;
 use crate::event::Event;
 use crate::tui::Tui;
@@ -38,7 +39,7 @@ pub fn handle_event<B: Backend>(event: Event, app: &mut App, tui: &Tui<B, Event>
     match event {
         Event::Tick => app.tick(),
         Event::Key(key_event) => {
-            if app.search {
+            if app.is_in_search_mode {
                 match key_event.code {
                     KeyCode::Esc => {
                         app.end_search_entry();
@@ -86,9 +87,10 @@ pub fn handle_event<B: Backend>(event: Event, app: &mut App, tui: &Tui<B, Event>
                         app.start_search_entry();
                     }
                     KeyCode::Enter => {
-                        let items = app.items_to_delete();
+                        let items: Vec<DirEntryItem> =
+                            app.list.items_to_delete().cloned().collect();
                         if !items.is_empty() {
-                            delete_items(app.items_to_delete(), &tui.sender);
+                            delete_items(items, &tui.sender);
                         }
                     }
                     // Other handlers you could add here.
@@ -98,7 +100,7 @@ pub fn handle_event<B: Backend>(event: Event, app: &mut App, tui: &Tui<B, Event>
         }
         Event::Mouse(_) => {}
         Event::Resize(_, _) => {}
-        Event::Entry(e) => app.handle_entry(e),
+        Event::Search(e) => app.handle_search(e),
         Event::Delete(e) => app.handle_delete(e),
     }
 }
