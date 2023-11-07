@@ -30,8 +30,27 @@ pub fn delete_items(items: Vec<DirEntryItem>, sender: &Sender<Event>) {
     });
 }
 
+#[cfg(target_os = "linux")]
+fn get_directory_size(path: &str) -> std::io::Result<u64> {
+    use std::process::Command;
+
+    let output = Command::new("du")
+        .arg("-s")
+        .arg("--block-size=1")
+        .arg(path)
+        .output()?;
+
+    let output_str = String::from_utf8(output.stdout)?;
+    let size_str = output_str.split_whitespace().next().ok_or_else(|| {
+        std::io::Error::new(std::io::ErrorKind::Other, "Failed to parse du output")
+    })?;
+    let size = size_str.parse::<u64>()?;
+    Ok(size)
+}
+
+#[cfg(target_os = "macos")]
 fn get_directory_size(path: &str) -> Result<u64, Box<dyn std::error::Error>> {
-    // note this will only work on iOS. du is highly optimized for each machine might be differnt on linux or windows.
+    // note this will only work on macos.
     let output = Command::new("du")
         .arg("-sk")
         .arg(path)
